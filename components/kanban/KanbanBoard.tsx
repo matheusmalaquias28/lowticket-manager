@@ -9,8 +9,10 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  pointerWithin,
   closestCenter,
   DragOverlay,
+  type CollisionDetection,
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useQueryClient } from '@tanstack/react-query'
@@ -21,14 +23,21 @@ import { DayColumn } from './DayColumn'
 import { TaskCard } from './TaskCard'
 import type { Task } from '@/lib/types'
 
+const collisionDetection: CollisionDetection = (args) => {
+  const pointerHits = pointerWithin(args)
+  if (pointerHits.length > 0) return pointerHits
+  return closestCenter(args)
+}
+
 interface KanbanBoardProps {
   weekKey: string
   onTaskClick: (task: Task) => void
   onAddTask: (dayOfWeek: number) => void
+  onAddDivider?: (dayOfWeek: number) => void
   isPastWeek: boolean
 }
 
-export function KanbanBoard({ weekKey, onTaskClick, onAddTask, isPastWeek }: KanbanBoardProps) {
+export function KanbanBoard({ weekKey, onTaskClick, onAddTask, onAddDivider, isPastWeek }: KanbanBoardProps) {
   const { data: tasks = [], isLoading } = useTasks(weekKey)
   const updateTask = useUpdateTask()
   const queryClient = useQueryClient()
@@ -40,7 +49,6 @@ export function KanbanBoard({ weekKey, onTaskClick, onAddTask, isPastWeek }: Kan
     setLocalTasks(tasks)
   }, [tasks])
 
-  // Realtime subscription
   useEffect(() => {
     const channel = supabase
       .channel(`tasks-${weekKey}`)
@@ -79,8 +87,8 @@ export function KanbanBoard({ weekKey, onTaskClick, onAddTask, isPastWeek }: Kan
 
     if (overId.startsWith('day-')) {
       const newDay = parseInt(overId.replace('day-', ''))
-      const activeTask = localTasks.find(t => t.id === activeId)
-      if (activeTask && activeTask.day_of_week !== newDay) {
+      const task = localTasks.find(t => t.id === activeId)
+      if (task && task.day_of_week !== newDay) {
         setLocalTasks(prev =>
           prev.map(t => t.id === activeId ? { ...t, day_of_week: newDay } : t)
         )
@@ -106,7 +114,6 @@ export function KanbanBoard({ weekKey, onTaskClick, onAddTask, isPastWeek }: Kan
         await updateTask.mutateAsync({ id: task.id, day_of_week: newDay, week_key: weekKey })
       }
     } else {
-      // Reorder within the same day
       const overTask = localTasks.find(t => t.id === overId)
       if (overTask && task.day_of_week === overTask.day_of_week) {
         const dayTasks = getTasksForDay(task.day_of_week)
@@ -119,6 +126,8 @@ export function KanbanBoard({ weekKey, onTaskClick, onAddTask, isPastWeek }: Kan
             return [...others, ...reordered]
           })
         }
+      } else if (overTask && task.day_of_week !== overTask.day_of_week) {
+        await updateTask.mutateAsync({ id: task.id, day_of_week: overTask.day_of_week, week_key: weekKey })
       }
     }
   }
@@ -139,7 +148,7 @@ export function KanbanBoard({ weekKey, onTaskClick, onAddTask, isPastWeek }: Kan
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={collisionDetection}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
@@ -153,6 +162,7 @@ export function KanbanBoard({ weekKey, onTaskClick, onAddTask, isPastWeek }: Kan
             weekKey={weekKey}
             tasks={getTasksForDay(day.index)}
             onAddTask={onAddTask}
+            onAddDivider={onAddDivider}
             onTaskClick={onTaskClick}
             isWeekPast={isPastWeek}
           />

@@ -2,7 +2,7 @@
 
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { Plus } from 'lucide-react'
+import { Plus, Minus } from 'lucide-react'
 import { format, addDays, isToday, isPast } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
@@ -17,6 +17,7 @@ interface DayColumnProps {
   weekKey: string
   tasks: Task[]
   onAddTask: (dayOfWeek: number) => void
+  onAddDivider?: (dayOfWeek: number) => void
   onTaskClick: (task: Task) => void
   isWeekPast?: boolean
 }
@@ -27,13 +28,13 @@ export function DayColumn({
   weekKey,
   tasks,
   onAddTask,
+  onAddDivider,
   onTaskClick,
   isWeekPast,
 }: DayColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: `day-${dayIndex}` })
 
   const weekStart = getWeekStart(weekKey)
-  // Day offset: Mon=1 is offset 0, Tue=2 is offset 1, ..., Sun=0 is offset 6
   const dayOffset = dayIndex === 0 ? 6 : dayIndex - 1
   const date = addDays(weekStart, dayOffset)
   const isTodayDay = isToday(date)
@@ -43,6 +44,7 @@ export function DayColumn({
 
   return (
     <div
+      ref={setNodeRef}
       className={cn(
         'flex flex-col min-w-[200px] w-[200px] lg:min-w-0 lg:w-auto lg:flex-1',
         'bg-[#111118] rounded-xl border border-[#22222E]',
@@ -60,11 +62,24 @@ export function DayColumn({
             {format(date, "d 'de' MMM", { locale: ptBR })}
           </p>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           {tasks.length > 0 && (
             <span className="text-[10px] font-600 text-[#5A5A70] bg-[#1A1A24] px-1.5 py-0.5 rounded-md">
               {tasks.length}
             </span>
+          )}
+          {onAddDivider && (
+            <button
+              title="Adicionar divisor"
+              onClick={() => onAddDivider(dayIndex)}
+              className={cn(
+                'w-6 h-6 rounded-lg flex items-center justify-center',
+                'text-[#5A5A70] hover:text-[#9090A8] hover:bg-[#1A1A24]',
+                'transition-colors'
+              )}
+            >
+              <Minus size={12} />
+            </button>
           )}
           <button
             onClick={() => onAddTask(dayIndex)}
@@ -81,10 +96,7 @@ export function DayColumn({
 
       {/* Tasks */}
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-        <div
-          ref={setNodeRef}
-          className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[120px]"
-        >
+        <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[120px]">
           {tasks.length === 0 ? (
             <EmptyState
               icon="📋"

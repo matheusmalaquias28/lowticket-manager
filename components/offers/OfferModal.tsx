@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Save } from 'lucide-react'
+import { X, Save, CheckSquare } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { OFFER_STATUSES, DEFAULT_OFFER_EMOJIS } from '@/lib/constants'
+import { OFFER_STATUSES, DEFAULT_OFFER_EMOJIS, DEFAULT_OFFER_TASK_TEMPLATES } from '@/lib/constants'
 import { useCreateOffer, useUpdateOffer } from '@/hooks/useOffers'
+import { useCreateTask } from '@/hooks/useTasks'
+import { getWeekKey } from '@/lib/weeks'
 import type { Offer, OfferStatus } from '@/lib/types'
 
 interface OfferModalProps {
@@ -14,14 +16,16 @@ interface OfferModalProps {
   onClose: () => void
   offer?: Offer | null
   currentUserId: string
+  weekKey?: string
 }
 
 const COLORS = ['#7C3AED', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6']
 
-export function OfferModal({ open, onClose, offer, currentUserId }: OfferModalProps) {
+export function OfferModal({ open, onClose, offer, currentUserId, weekKey }: OfferModalProps) {
   const isEditing = !!offer
   const createOffer = useCreateOffer()
   const updateOffer = useUpdateOffer()
+  const createTask = useCreateTask()
 
   const [name, setName] = useState('')
   const [emoji, setEmoji] = useState('🎯')
@@ -33,6 +37,7 @@ export function OfferModal({ open, onClose, offer, currentUserId }: OfferModalPr
   const [pixelId, setPixelId] = useState('')
   const [weeklyBudget, setWeeklyBudget] = useState('')
   const [notes, setNotes] = useState('')
+  const [createDefaultTasks, setCreateDefaultTasks] = useState(true)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -59,6 +64,7 @@ export function OfferModal({ open, onClose, offer, currentUserId }: OfferModalPr
       setWeeklyBudget('')
       setNotes('')
     }
+    setCreateDefaultTasks(true)
   }, [offer, open])
 
   async function handleSave() {
@@ -77,13 +83,37 @@ export function OfferModal({ open, onClose, offer, currentUserId }: OfferModalPr
         weekly_budget: weeklyBudget ? parseFloat(weeklyBudget) : undefined,
         notes: notes || undefined,
       }
+
       if (isEditing && offer) {
         await updateOffer.mutateAsync({ id: offer.id, ...payload })
         toast.success('Oferta atualizada!')
       } else {
-        await createOffer.mutateAsync({ ...payload, created_by: currentUserId })
-        toast.success('Oferta criada!')
+        const newOffer = await createOffer.mutateAsync({ ...payload, created_by: currentUserId })
+
+        if (createDefaultTasks && newOffer?.id) {
+          const wk = weekKey ?? getWeekKey()
+          await Promise.all(
+            DEFAULT_OFFER_TASK_TEMPLATES.map(tmpl =>
+              createTask.mutateAsync({
+                title: tmpl.title,
+                status: 'pending',
+                assignee_name: currentUserId === 'Kauan' ? 'Kauan' : 'Matheus',
+                category: tmpl.category,
+                day_of_week: tmpl.day_of_week,
+                week_key: wk,
+                offer_id: newOffer.id,
+                checklist: [],
+                links: [],
+                created_by: currentUserId,
+              })
+            )
+          )
+          toast.success(`Oferta criada com ${DEFAULT_OFFER_TASK_TEMPLATES.length} tarefas!`)
+        } else {
+          toast.success('Oferta criada!')
+        }
       }
+
       onClose()
     } catch {
       toast.error('Erro ao salvar oferta.')
@@ -206,6 +236,33 @@ export function OfferModal({ open, onClose, offer, currentUserId }: OfferModalPr
                 <label className="block text-xs font-600 text-[#9090A8] mb-2">Notas</label>
                 <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Observações gerais..." className={cn(inputClass, 'resize-none')} />
               </div>
+
+              {/* Tarefas padrão — apenas ao criar */}
+              {!isEditing && (
+                <button
+                  type="button"
+                  onClick={() => setCreateDefaultTasks(prev => !prev)}
+                  className={cn(
+                    'w-full flex items-center gap-3 p-3 rounded-xl border transition-all',
+                    createDefaultTasks
+                      ? 'border-[#7C3AED] bg-[#7C3AED0D]'
+                      : 'border-[#22222E] hover:border-[#7C3AED40]'
+                  )}
+                >
+                  <CheckSquare
+                    size={16}
+                    className={createDefaultTasks ? 'text-[#8B5CF6]' : 'text-[#5A5A70]'}
+                  />
+                  <div className="text-left">
+                    <p className={cn('text-xs font-600', createDefaultTasks ? 'text-[#F0F0F8]' : 'text-[#9090A8]')}>
+                      Criar tarefas padrão
+                    </p>
+                    <p className="text-[10px] text-[#5A5A70]">
+                      Copy, MVP, criativos, Hotmart, Pixel, Order Bumps
+                    </p>
+                  </div>
+                </button>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-2 p-4 border-t border-[#22222E]">

@@ -7,6 +7,7 @@ import { WeekNavigator } from '@/components/kanban/WeekNavigator'
 import { TaskModal } from '@/components/tasks/TaskModal'
 import { Header } from '@/components/layout/Header'
 import { useCurrentWeek } from '@/hooks/useCurrentWeek'
+import { useCreateTask } from '@/hooks/useTasks'
 import type { Profile, Task } from '@/lib/types'
 
 interface KanbanPageClientProps {
@@ -15,6 +16,7 @@ interface KanbanPageClientProps {
 
 export function KanbanPageClient({ profile }: KanbanPageClientProps) {
   const { weekKey, goToPrev, goToNext, goToToday, isCurrentWeek, isPastWeek } = useCurrentWeek()
+  const createTask = useCreateTask()
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [defaultDay, setDefaultDay] = useState(1)
@@ -33,6 +35,24 @@ export function KanbanPageClient({ profile }: KanbanPageClientProps) {
   function closeModal() {
     setModalOpen(false)
     setSelectedTask(null)
+  }
+
+  async function handleAddDivider(dayOfWeek: number) {
+    try {
+      await createTask.mutateAsync({
+        title: '---',
+        status: 'pending',
+        assignee_name: profile.name,
+        category: 'other',
+        day_of_week: dayOfWeek,
+        week_key: weekKey,
+        checklist: [],
+        links: [],
+        created_by: profile.id,
+      })
+    } catch {
+      // ignore — divider creation failure is non-critical
+    }
   }
 
   return (
@@ -60,6 +80,7 @@ export function KanbanPageClient({ profile }: KanbanPageClientProps) {
           weekKey={weekKey}
           onTaskClick={openEdit}
           onAddTask={openNew}
+          onAddDivider={handleAddDivider}
           isPastWeek={isPastWeek}
         />
       </div>

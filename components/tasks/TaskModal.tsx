@@ -1,19 +1,22 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Trash2, Save, ChevronDown, ExternalLink } from 'lucide-react'
+import { X, Trash2, Save, ExternalLink, Calendar } from 'lucide-react'
 import { toast } from 'sonner'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
-import { TASK_CATEGORIES, TASK_STATUSES, ASSIGNEE_COLORS } from '@/lib/constants'
+import { TASK_CATEGORIES, ASSIGNEE_COLORS, DEFAULT_TASK_STATUSES } from '@/lib/constants'
 import { DAYS_OF_WEEK, getWeekKey, navigateWeek } from '@/lib/weeks'
 import { useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/useTasks'
 import { useOffers } from '@/hooks/useOffers'
+import { useTaskStatuses } from '@/hooks/useTaskStatuses'
 import { ChecklistEditor } from './ChecklistEditor'
 import { LinksList } from './LinksList'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { AssigneeBadge } from '@/components/shared/AssigneeBadge'
+import { CalendarPicker } from '@/components/ui/CalendarPicker'
 import type { Task, TaskStatus, AssigneeName, TaskCategory, ChecklistItem, TaskLink } from '@/lib/types'
 
 interface TaskModalProps {
@@ -26,11 +29,9 @@ interface TaskModalProps {
   currentUserName: AssigneeName
 }
 
-const STATUSES: TaskStatus[] = ['pending', 'in_progress', 'done']
 const ASSIGNEES: AssigneeName[] = ['Matheus', 'Kauan']
 
 const NEXT_4_WEEKS = Array.from({ length: 4 }, (_, i) => {
-  const key = getWeekKey()
   const d = new Date()
   d.setDate(d.getDate() + (i + 1) * 7)
   return getWeekKey(d)
@@ -48,6 +49,7 @@ export function TaskModal({
   const isEditing = !!task
 
   const { data: offers = [] } = useOffers()
+  const { data: statuses = DEFAULT_TASK_STATUSES } = useTaskStatuses()
   const createTask = useCreateTask()
   const updateTask = useUpdateTask()
   const deleteTask = useDeleteTask()
@@ -68,6 +70,8 @@ export function TaskModal({
   const [moveToWeek, setMoveToWeek] = useState('')
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [calendarOpen, setCalendarOpen] = useState(false)
+  const calendarRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (task) {
@@ -103,7 +107,19 @@ export function TaskModal({
       setMoveToWeek('')
       setConfirmDelete(false)
     }
+    setCalendarOpen(false)
   }, [task, open, defaultDayOfWeek, currentUserName])
+
+  // Close calendar when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (calendarRef.current && !calendarRef.current.contains(e.target as Node)) {
+        setCalendarOpen(false)
+      }
+    }
+    if (calendarOpen) document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [calendarOpen])
 
   async function handleSave() {
     if (!title.trim()) {
@@ -143,7 +159,7 @@ export function TaskModal({
       }
 
       onClose()
-    } catch (err) {
+    } catch {
       toast.error('Erro ao salvar tarefa.')
     } finally {
       setSaving(false)
@@ -164,6 +180,10 @@ export function TaskModal({
       toast.error('Erro ao excluir tarefa.')
     }
   }
+
+  const formattedDueDate = dueDate
+    ? format(parseISO(dueDate), "d 'de' MMM", { locale: ptBR })
+    : null
 
   return (
     <AnimatePresence>
@@ -204,18 +224,18 @@ export function TaskModal({
                   )}
                   autoFocus
                 />
-                {/* Status pills */}
-                <div className="flex items-center gap-2 mt-3">
-                  {STATUSES.map(s => (
+                {/* Status pills — dynamic */}
+                <div className="flex items-center gap-2 mt-3 flex-wrap">
+                  {statuses.map(s => (
                     <button
-                      key={s}
-                      onClick={() => setStatus(s)}
+                      key={s.id}
+                      onClick={() => setStatus(s.id)}
                       className={cn(
                         'transition-all duration-150',
-                        status === s ? 'scale-105' : 'opacity-50 hover:opacity-80'
+                        status === s.id ? 'scale-105' : 'opacity-50 hover:opacity-80'
                       )}
                     >
-                      <StatusBadge status={s} />
+                      <StatusBadge status={s.id} />
                     </button>
                   ))}
                 </div>
@@ -383,19 +403,38 @@ export function TaskModal({
                   </div>
                 </div>
 
-                {/* Prazo */}
+                {/* Prazo — com CalendarPicker */}
                 <div>
                   <label className="block text-xs font-600 text-[#9090A8] mb-2">Prazo</label>
                   <div className="space-y-1.5">
-                    <input
-                      type="date"
-                      value={dueDate}
-                      onChange={e => setDueDate(e.target.value)}
-                      className={cn(
-                        'w-full bg-[#0A0A0F] border border-[#22222E] rounded-lg px-3 py-2',
-                        'text-xs text-[#F0F0F8] focus:outline-none focus:border-[#7C3AED]'
+                    {/* Date picker */}
+                    <div ref={calendarRef} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setCalendarOpen(prev => !prev)}
+                        className={cn(
+                          'w-full bg-[#0A0A0F] border border-[#22222E] rounded-lg px-3 py-2',
+                          'text-xs text-left flex items-center justify-between transition-colors',
+                          calendarOpen ? 'border-[#7C3AED]' : 'hover:border-[#7C3AED40]',
+                          formattedDueDate ? 'text-[#F0F0F8]' : 'text-[#5A5A70]'
+                        )}
+                      >
+                        {formattedDueDate ?? 'Selecionar data...'}
+                        <Calendar size={12} className="text-[#5A5A70] shrink-0" />
+                      </button>
+                      {calendarOpen && (
+                        <div className="absolute top-full left-0 mt-1 z-50">
+                          <CalendarPicker
+                            value={dueDate}
+                            onChange={(date) => {
+                              setDueDate(date)
+                              setCalendarOpen(false)
+                            }}
+                          />
+                        </div>
                       )}
-                    />
+                    </div>
+                    {/* Time picker */}
                     <input
                       type="time"
                       value={dueTime}

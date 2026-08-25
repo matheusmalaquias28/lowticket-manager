@@ -1,18 +1,21 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Bell, RefreshCw, Save, ChevronRight } from 'lucide-react'
+import { Bell, RefreshCw, Save, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import { ASSIGNEE_COLORS } from '@/lib/constants'
+import { DEFAULT_TASK_STATUSES } from '@/lib/constants'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/Header'
 import { UserAvatar } from '@/components/layout/UserAvatar'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
-import type { Profile, RecurringTemplate } from '@/lib/types'
+import { useTaskStatuses, useSaveTaskStatuses } from '@/hooks/useTaskStatuses'
+import type { Profile, RecurringTemplate, TaskStatusConfig } from '@/lib/types'
 
 const COLORS = ['#7C3AED', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6']
+const DEFAULT_IDS = DEFAULT_TASK_STATUSES.map(s => s.id)
 
 interface SettingsPageClientProps {
   profile: Profile
@@ -21,10 +24,20 @@ interface SettingsPageClientProps {
 export function SettingsPageClient({ profile }: SettingsPageClientProps) {
   const supabase = createClient()
   const { requestPermission } = usePushNotifications()
+  const { data: fetchedStatuses = DEFAULT_TASK_STATUSES } = useTaskStatuses()
+  const saveStatuses = useSaveTaskStatuses()
+
   const [avatarColor, setAvatarColor] = useState(profile.avatar_color)
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [templates, setTemplates] = useState<(RecurringTemplate & { offer_name?: string; offer_emoji?: string })[]>([])
+
+  // Local editable copy of statuses
+  const [editStatuses, setEditStatuses] = useState<TaskStatusConfig[]>(fetchedStatuses)
+
+  useEffect(() => {
+    setEditStatuses(fetchedStatuses)
+  }, [fetchedStatuses])
 
   useEffect(() => {
     loadTemplates()
@@ -77,6 +90,33 @@ export function SettingsPageClient({ profile }: SettingsPageClientProps) {
       toast.error('Erro ao gerar semana.')
     } finally {
       setGenerating(false)
+    }
+  }
+
+  function updateStatusLabel(id: string, label: string) {
+    setEditStatuses(prev => prev.map(s => s.id === id ? { ...s, label } : s))
+  }
+
+  function updateStatusColor(id: string, color: string) {
+    setEditStatuses(prev => prev.map(s => s.id === id ? { ...s, color } : s))
+  }
+
+  function addStatus() {
+    const id = `custom_${Date.now()}`
+    setEditStatuses(prev => [...prev, { id, label: 'Novo status', color: '#6B7280' }])
+  }
+
+  function removeStatus(id: string) {
+    if (DEFAULT_IDS.includes(id)) return
+    setEditStatuses(prev => prev.filter(s => s.id !== id))
+  }
+
+  async function handleSaveStatuses() {
+    try {
+      await saveStatuses.mutateAsync(editStatuses)
+      toast.success('Status atualizados!')
+    } catch {
+      toast.error('Erro ao salvar status.')
     }
   }
 
@@ -134,6 +174,73 @@ export function SettingsPageClient({ profile }: SettingsPageClientProps) {
                 <Save size={14} />
                 {saving ? 'Salvando...' : 'Salvar'}
               </button>
+            </div>
+          </section>
+
+          {/* Status das demandas */}
+          <section>
+            <h2 className="text-sm font-700 text-[#F0F0F8] mb-4">Status das demandas</h2>
+            <div className="bg-[#111118] rounded-xl border border-[#22222E] overflow-hidden">
+              <div className="divide-y divide-[#22222E]">
+                {editStatuses.map(s => {
+                  const isDefault = DEFAULT_IDS.includes(s.id)
+                  return (
+                    <div key={s.id} className="flex items-center gap-3 px-4 py-3">
+                      {/* Color picker */}
+                      <label className="relative w-6 h-6 rounded-full cursor-pointer shrink-0 ring-2 ring-offset-2 ring-offset-[#111118] ring-transparent hover:ring-[#7C3AED] transition-all">
+                        <span className="block w-6 h-6 rounded-full" style={{ backgroundColor: s.color }} />
+                        <input
+                          type="color"
+                          value={s.color}
+                          onChange={e => updateStatusColor(s.id, e.target.value)}
+                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                        />
+                      </label>
+
+                      {/* Label input */}
+                      <input
+                        type="text"
+                        value={s.label}
+                        onChange={e => updateStatusLabel(s.id, e.target.value)}
+                        className="flex-1 bg-transparent text-sm text-[#F0F0F8] focus:outline-none"
+                      />
+
+                      {/* Preview */}
+                      <StatusBadge status={s.id} />
+
+                      {/* Delete (only custom) */}
+                      {!isDefault ? (
+                        <button
+                          onClick={() => removeStatus(s.id)}
+                          className="text-[#5A5A70] hover:text-[#EF4444] transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      ) : (
+                        <div className="w-[14px]" />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="flex items-center justify-between gap-2 p-4 border-t border-[#22222E]">
+                <button
+                  onClick={addStatus}
+                  className="flex items-center gap-1.5 text-xs text-[#5A5A70] hover:text-[#8B5CF6] transition-colors"
+                >
+                  <Plus size={14} />
+                  Adicionar status
+                </button>
+                <button
+                  onClick={handleSaveStatuses}
+                  disabled={saveStatuses.isPending}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-600 bg-[#7C3AED] hover:bg-[#8B5CF6] text-white transition-all active:scale-[0.98] disabled:opacity-50"
+                >
+                  <Save size={12} />
+                  {saveStatuses.isPending ? 'Salvando...' : 'Salvar status'}
+                </button>
+              </div>
             </div>
           </section>
 

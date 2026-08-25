@@ -26,9 +26,34 @@ export function TaskCard({ task, onClick, isPast = false }: TaskCardProps) {
     transition,
   }
 
+  // Renderizar como separador/divisor
+  if (task.title.startsWith('---')) {
+    const label = task.title.replace(/^---/, '').trim()
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        onClick={() => onClick(task)}
+        className={cn(
+          'group flex items-center gap-2 py-2 px-1 cursor-pointer',
+          isDragging && 'opacity-50'
+        )}
+      >
+        <div className="flex-1 h-px bg-[#22222E]" />
+        <span className="text-[10px] text-[#5A5A70] font-700 shrink-0 group-hover:text-[#9090A8] transition-colors uppercase tracking-wider">
+          {label || '─────'}
+        </span>
+        <div className="flex-1 h-px bg-[#22222E]" />
+      </div>
+    )
+  }
+
   const doneItems = task.checklist.filter(i => i.done).length
   const totalItems = task.checklist.length
   const category = TASK_CATEGORIES.find(c => c.value === task.category)
+  const previewItems = task.checklist.slice(0, 3)
 
   return (
     <div
@@ -72,6 +97,35 @@ export function TaskCard({ task, onClick, isPast = false }: TaskCardProps) {
         >
           <span>{task.offer.emoji}</span>
           <span className="truncate max-w-[80px]">{task.offer.name}</span>
+        </div>
+      )}
+
+      {/* Checklist preview */}
+      {previewItems.length > 0 && (
+        <div className="mb-2 pt-2 border-t border-[#22222E] space-y-1">
+          {previewItems.map(item => (
+            <div key={item.id} className="flex items-center gap-1.5">
+              <div
+                className={cn(
+                  'w-3 h-3 rounded border shrink-0',
+                  item.done ? 'bg-[#10B981] border-[#10B981]' : 'border-[#5A5A70]'
+                )}
+              />
+              <span
+                className={cn(
+                  'text-[10px] truncate',
+                  item.done ? 'line-through text-[#5A5A70]' : 'text-[#9090A8]'
+                )}
+              >
+                {item.text}
+              </span>
+            </div>
+          ))}
+          {task.checklist.length > 3 && (
+            <span className="text-[10px] text-[#5A5A70]">
+              +{task.checklist.length - 3} item(s)
+            </span>
+          )}
         </div>
       )}
 

@@ -1,6 +1,6 @@
 export type AssigneeName = 'Matheus' | 'Kauan'
 
-export type TaskStatus = 'pending' | 'in_progress' | 'done'
+export type TaskStatus = string // livre para aceitar status customizados
 
 export type OfferStatus = 'draft' | 'development' | 'active' | 'paused' | 'ended'
 
@@ -11,6 +11,12 @@ export type TaskCategory =
   | 'creative'
   | 'media_buy'
   | 'other'
+
+export interface TaskStatusConfig {
+  id: string    // 'pending', 'in_progress', 'done' ou slug customizado
+  label: string
+  color: string
+}
 
 export interface Profile {
   id: string

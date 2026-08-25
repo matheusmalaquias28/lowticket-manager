@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/layout/Sidebar'
+import { OneSignalInit } from '@/components/OneSignalInit'
 import { Providers } from '@/components/providers'
 import type { Profile } from '@/lib/types'
 
@@ -21,6 +22,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <Providers>
+      <OneSignalInit userId={user.id} />
       <div className="flex h-screen overflow-hidden bg-[#0A0A0F]">
         <Sidebar profile={profile as Profile} />
         <main className="flex-1 flex flex-col overflow-hidden">

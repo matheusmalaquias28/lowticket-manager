@@ -1,4 +1,5 @@
-const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID!
+const ONESIGNAL_APP_ID =
+  process.env.ONESIGNAL_APP_ID ?? process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID!
 const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY!
 
 export async function sendPushNotification({
