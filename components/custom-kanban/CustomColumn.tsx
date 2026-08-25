@@ -68,7 +68,7 @@ export function CustomColumnComp({ column, cards, onCardClick, dragHandleProps }
   const cardIds = cards.map(c => c.id)
 
   return (
-    <div className="flex flex-col min-w-[220px] w-[220px] lg:min-w-0 lg:w-auto lg:flex-1 max-w-[300px]">
+    <div className="flex flex-col flex-1 min-w-[180px]">
       {/* Column header */}
       <div
         className={cn(

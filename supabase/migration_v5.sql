@@ -27,6 +27,25 @@ CREATE POLICY "auth manage kanban_cards"   ON public.kanban_cards   FOR ALL TO a
 
 CREATE INDEX IF NOT EXISTS kanban_cards_column_idx ON public.kanban_cards (column_id);
 
+-- Garante que app_settings existe (criada na migration_v2, mas adicionamos aqui por segurança)
+CREATE TABLE IF NOT EXISTS public.app_settings (
+  key        text primary key,
+  value      jsonb not null,
+  updated_at timestamptz default now()
+);
+
+ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'app_settings' AND policyname = 'auth manage app_settings'
+  ) THEN
+    EXECUTE 'CREATE POLICY "auth manage app_settings" ON public.app_settings FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+  END IF;
+END $$;
+
 -- Etiquetas: armazenadas em app_settings com key='kanban_labels'
 INSERT INTO public.app_settings (key, value)
 VALUES ('kanban_labels', '[]'::jsonb)

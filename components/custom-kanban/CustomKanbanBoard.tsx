@@ -56,7 +56,7 @@ function SortableColumn({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn('flex flex-col', isDragging && 'opacity-40')}
+      className={cn('flex flex-col flex-1 min-w-[180px]', isDragging && 'opacity-40')}
     >
       <CustomColumnComp
         column={column}
@@ -184,7 +184,7 @@ export function CustomKanbanBoard() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-3 px-4 pb-4 overflow-x-auto snap-x-scroll">
+        <div className="flex gap-3 px-4 pb-4 overflow-x-auto">
           <SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
             {columns.map(col => (
               <SortableColumn
@@ -198,7 +198,7 @@ export function CustomKanbanBoard() {
 
           {/* Add column panel */}
           {addingColumn ? (
-            <div className="min-w-[220px] w-[220px] bg-[#111118] border border-[#7C3AED40] rounded-xl p-3 space-y-3 shrink-0 self-start">
+            <div className="flex-1 min-w-[180px] bg-[#111118] border border-[#7C3AED40] rounded-xl p-3 space-y-3 self-start">
               <input
                 autoFocus
                 value={newColName}
