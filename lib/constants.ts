@@ -31,16 +31,25 @@ export const ASSIGNEE_COLORS: Record<string, string> = {
 
 export const DEFAULT_OFFER_EMOJIS = ['🎯', '🚀', '💎', '🔥', '⚡', '🌟', '💰', '📈', '🎪', '🏆']
 
-// Tarefas padrão criadas ao usar "Criar Nova Oferta"
-export const DEFAULT_OFFER_TASK_TEMPLATES: {
-  title: string
-  category: TaskCategory
-  day_of_week: number
-}[] = [
-  { title: 'Criar copy da LP', category: 'ad_copy', day_of_week: 1 },
-  { title: 'Criar MVP da oferta', category: 'offer_conception', day_of_week: 1 },
-  { title: 'Modelar anúncios', category: 'creative', day_of_week: 2 },
-  { title: 'Configurar Hotmart', category: 'other', day_of_week: 3 },
-  { title: 'Configurar Pixel e Utmify', category: 'media_buy', day_of_week: 3 },
-  { title: 'Configurar Order Bumps', category: 'offer_conception', day_of_week: 4 },
+// Checklist padrão do card de lançamento criado ao usar "Criar Nova Oferta"
+export const DEFAULT_OFFER_CHECKLIST_ITEMS: string[] = [
+  'Baixar Ads concorrente',
+  'Criar e-mail',
+  'Criar Instagram',
+  'Criar Facebook',
+  'Criação de MVP',
+  'Cadastrar produto Hotmart',
+  'Configurar preços Hotmart',
+  'Fazer integração de pixels',
+  'Fazer integrações de webhook',
+  'Criar copy de landing page',
+  'Criar copy de criativos',
+  'Criar página Facebook',
+  'Landing page pronta',
+  'Personalização Instagram/Facebook — Bio / Imagens / Destaques / Site',
+  'Adicionar visual do produto na Hotmart',
+  'Criativos prontos',
+  'Programar ads',
+  'Criar BM',
+  'Criar conta de anúncios',
 ]

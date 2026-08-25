@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Save, CheckSquare } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { OFFER_STATUSES, DEFAULT_OFFER_EMOJIS, DEFAULT_OFFER_TASK_TEMPLATES } from '@/lib/constants'
+import { OFFER_STATUSES, DEFAULT_OFFER_EMOJIS, DEFAULT_OFFER_CHECKLIST_ITEMS } from '@/lib/constants'
 import { useCreateOffer, useUpdateOffer } from '@/hooks/useOffers'
 import { useCreateTask } from '@/hooks/useTasks'
 import { getWeekKey } from '@/lib/weeks'
@@ -92,23 +92,24 @@ export function OfferModal({ open, onClose, offer, currentUserId, weekKey }: Off
 
         if (createDefaultTasks && newOffer?.id) {
           const wk = weekKey ?? getWeekKey()
-          await Promise.all(
-            DEFAULT_OFFER_TASK_TEMPLATES.map(tmpl =>
-              createTask.mutateAsync({
-                title: tmpl.title,
-                status: 'pending',
-                assignee_name: currentUserId === 'Kauan' ? 'Kauan' : 'Matheus',
-                category: tmpl.category,
-                day_of_week: tmpl.day_of_week,
-                week_key: wk,
-                offer_id: newOffer.id,
-                checklist: [],
-                links: [],
-                created_by: currentUserId,
-              })
-            )
-          )
-          toast.success(`Oferta criada com ${DEFAULT_OFFER_TASK_TEMPLATES.length} tarefas!`)
+          const checklist = DEFAULT_OFFER_CHECKLIST_ITEMS.map((text, i) => ({
+            id: `cl_${Date.now()}_${i}`,
+            text,
+            done: false,
+          }))
+          await createTask.mutateAsync({
+            title: `Lançamento — ${name.trim()}`,
+            status: 'pending',
+            assignee_name: 'Matheus',
+            category: 'offer_conception',
+            day_of_week: 1,
+            week_key: wk,
+            offer_id: newOffer.id,
+            checklist,
+            links: [],
+            created_by: currentUserId,
+          })
+          toast.success(`Oferta criada com checklist de ${DEFAULT_OFFER_CHECKLIST_ITEMS.length} itens!`)
         } else {
           toast.success('Oferta criada!')
         }
@@ -258,7 +259,7 @@ export function OfferModal({ open, onClose, offer, currentUserId, weekKey }: Off
                       Criar tarefas padrão
                     </p>
                     <p className="text-[10px] text-[#5A5A70]">
-                      Copy, MVP, criativos, Hotmart, Pixel, Order Bumps
+                      1 card com 19 checklists de lançamento
                     </p>
                   </div>
                 </button>
