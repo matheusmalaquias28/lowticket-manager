@@ -1,13 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, CalendarDays } from 'lucide-react'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import { WeekNavigator } from '@/components/kanban/WeekNavigator'
 import { TaskModal } from '@/components/tasks/TaskModal'
+import { CustomKanbanBoard } from '@/components/custom-kanban/CustomKanbanBoard'
 import { Header } from '@/components/layout/Header'
 import { useCurrentWeek } from '@/hooks/useCurrentWeek'
 import { useCreateTask } from '@/hooks/useTasks'
+import { cn } from '@/lib/utils'
 import type { Profile, Task } from '@/lib/types'
 
 interface KanbanPageClientProps {
@@ -51,21 +53,13 @@ export function KanbanPageClient({ profile }: KanbanPageClientProps) {
         created_by: profile.id,
       })
     } catch {
-      // ignore — divider creation failure is non-critical
+      // non-critical
     }
   }
 
   return (
     <>
-      <Header title="Kanban semanal">
-        <WeekNavigator
-          weekKey={weekKey}
-          onPrev={goToPrev}
-          onNext={goToNext}
-          onToday={goToToday}
-          isCurrentWeek={isCurrentWeek}
-          isPastWeek={isPastWeek}
-        />
+      <Header title="Kanban">
         <button
           onClick={() => openNew(1)}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-600 bg-[#7C3AED] hover:bg-[#8B5CF6] text-white transition-colors active:scale-[0.98]"
@@ -75,14 +69,40 @@ export function KanbanPageClient({ profile }: KanbanPageClientProps) {
         </button>
       </Header>
 
-      <div className="flex-1 overflow-hidden flex flex-col">
-        <KanbanBoard
-          weekKey={weekKey}
-          onTaskClick={openEdit}
-          onAddTask={openNew}
-          onAddDivider={handleAddDivider}
-          isPastWeek={isPastWeek}
-        />
+      {/* Two-section scrollable layout */}
+      <div className="flex-1 overflow-y-auto">
+
+        {/* ── Quadro livre ────────────────────────────────────────── */}
+        <CustomKanbanBoard />
+
+        {/* ── Divider ─────────────────────────────────────────────── */}
+        <div className="flex items-center gap-3 px-4 py-3">
+          <div className="flex-1 h-px bg-[#22222E]" />
+          <div className="flex items-center gap-2">
+            <CalendarDays size={13} className="text-[#5A5A70]" />
+            <span className="text-[10px] font-700 text-[#5A5A70] uppercase tracking-wider">Semana</span>
+          </div>
+          <div className="flex-1 h-px bg-[#22222E]" />
+          <WeekNavigator
+            weekKey={weekKey}
+            onPrev={goToPrev}
+            onNext={goToNext}
+            onToday={goToToday}
+            isCurrentWeek={isCurrentWeek}
+            isPastWeek={isPastWeek}
+          />
+        </div>
+
+        {/* ── Quadro semanal ──────────────────────────────────────── */}
+        <div className="flex flex-col" style={{ minHeight: '480px' }}>
+          <KanbanBoard
+            weekKey={weekKey}
+            onTaskClick={openEdit}
+            onAddTask={openNew}
+            onAddDivider={handleAddDivider}
+            isPastWeek={isPastWeek}
+          />
+        </div>
       </div>
 
       <TaskModal

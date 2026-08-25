@@ -100,6 +100,31 @@ export interface Task {
   updated_at: string
 }
 
+export interface KanbanLabel {
+  id: string
+  name: string
+  color: string
+}
+
+export interface CustomColumn {
+  id: string
+  name: string
+  color: string
+  position: number
+  created_at: string
+}
+
+export interface CustomCard {
+  id: string
+  column_id: string
+  title: string
+  description?: string
+  label_ids: string[]
+  position: number
+  created_at: string
+  updated_at: string
+}
+
 export interface Week {
   week_key: string
   start_date: string
