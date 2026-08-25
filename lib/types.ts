@@ -91,6 +91,7 @@ export interface Task {
   references: TaskReference[]
   due_date?: string
   due_time?: string
+  is_urgent: boolean
   is_delayed: boolean
   original_week_key?: string
   original_day_of_week?: number

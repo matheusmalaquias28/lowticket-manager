@@ -2,7 +2,7 @@
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Clock } from 'lucide-react'
+import { Clock, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TASK_CATEGORIES } from '@/lib/constants'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -67,10 +67,22 @@ export function TaskCard({ task, onClick, isPast = false }: TaskCardProps) {
         'bg-[#111118] shadow-card',
         'hover:shadow-card-hover hover:bg-[#1A1A24]',
         'transition-all duration-200',
-        isDragging && 'opacity-50 shadow-card-hover scale-[0.98]',
+        task.is_urgent && 'border border-[#EF4444] shadow-[0_0_10px_#EF444428]',
+        !task.is_urgent && 'border border-transparent',
+        isDragging && 'opacity-50 scale-[0.98]',
         isPast && 'opacity-60'
       )}
     >
+      {/* Urgente badge */}
+      {task.is_urgent && (
+        <div className="flex items-center gap-1 mb-2 -mt-0.5">
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-700 bg-[#EF44441A] text-[#EF4444] tracking-wide uppercase">
+            <Zap size={9} className="fill-[#EF4444]" />
+            Urgente
+          </span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <p className="text-xs font-600 text-[#F0F0F8] leading-snug line-clamp-2 flex-1">

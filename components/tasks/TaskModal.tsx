@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Trash2, Save, ExternalLink, Calendar } from 'lucide-react'
+import { X, Trash2, Save, ExternalLink, Calendar, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -70,6 +70,7 @@ export function TaskModal({
   const [moveToWeek, setMoveToWeek] = useState('')
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [isUrgent, setIsUrgent] = useState(false)
   const [calendarOpen, setCalendarOpen] = useState(false)
   const calendarRef = useRef<HTMLDivElement>(null)
 
@@ -90,6 +91,7 @@ export function TaskModal({
       setDueTime(task.due_time ?? '')
       setMoveToWeek('')
       setConfirmDelete(false)
+      setIsUrgent(task.is_urgent ?? false)
     } else {
       setTitle('')
       setStatus('pending')
@@ -106,6 +108,7 @@ export function TaskModal({
       setDueTime('')
       setMoveToWeek('')
       setConfirmDelete(false)
+      setIsUrgent(false)
     }
     setCalendarOpen(false)
   }, [task, open, defaultDayOfWeek, currentUserName])
@@ -140,6 +143,7 @@ export function TaskModal({
         offer_id: offerId || undefined,
         category,
         day_of_week: dayOfWeek,
+        is_urgent: isUrgent,
         due_date: dueDate || undefined,
         due_time: dueTime || undefined,
         week_key: moveToWeek || task?.week_key || defaultWeekKey || getWeekKey(),
@@ -345,6 +349,26 @@ export function TaskModal({
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* Urgência */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setIsUrgent(prev => !prev)}
+                    className={cn(
+                      'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border font-600 text-xs transition-all duration-200',
+                      isUrgent
+                        ? 'border-[#EF4444] bg-[#EF44441A] text-[#EF4444] shadow-[0_0_12px_#EF444430]'
+                        : 'border-[#22222E] text-[#5A5A70] hover:border-[#EF444440] hover:text-[#EF4444]'
+                    )}
+                  >
+                    <Zap
+                      size={14}
+                      className={cn('shrink-0 transition-all', isUrgent && 'fill-[#EF4444]')}
+                    />
+                    {isUrgent ? 'Urgente' : 'Marcar como urgente'}
+                  </button>
                 </div>
 
                 {/* Oferta */}
