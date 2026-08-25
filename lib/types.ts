@@ -125,6 +125,22 @@ export interface CustomCard {
   updated_at: string
 }
 
+export interface AcervoLink {
+  label: string
+  url: string
+}
+
+export interface AcervoCard {
+  id: string
+  title: string
+  content: string
+  links: AcervoLink[]
+  color: string
+  position: number
+  created_at: string
+  updated_at: string
+}
+
 export interface Week {
   week_key: string
   start_date: string

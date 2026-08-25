@@ -8,7 +8,6 @@ import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import { getWeekStart } from '@/lib/weeks'
 import { TaskCard } from './TaskCard'
-import { WeekGoals } from './WeekGoals'
 import { EmptyState } from '@/components/shared/EmptyState'
 import type { Task } from '@/lib/types'
 
@@ -42,8 +41,6 @@ export function DayColumn({
   const isPastDay = isPast(date) && !isTodayDay
 
   const taskIds = tasks.map(t => t.id)
-
-  const isMonday = dayIndex === 1
 
   return (
     <div className="flex flex-col gap-3 min-w-[200px] w-[200px] lg:min-w-0 lg:w-auto lg:flex-1">
@@ -120,11 +117,6 @@ export function DayColumn({
         </div>
       </SortableContext>
     </div>
-
-    {/* Metas da semana — apenas segunda-feira */}
-    {isMonday && (
-      <WeekGoals weekKey={weekKey} isPastWeek={isWeekPast} />
-    )}
     </div>
   )
 }

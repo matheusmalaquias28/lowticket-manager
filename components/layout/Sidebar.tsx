@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutGrid, Tag, Settings, LogOut } from 'lucide-react'
+import { LayoutGrid, Tag, Settings, LogOut, Archive } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { UserAvatar } from './UserAvatar'
@@ -11,6 +11,7 @@ import type { Profile } from '@/lib/types'
 const NAV_ITEMS = [
   { href: '/kanban', label: 'Kanban', icon: LayoutGrid },
   { href: '/offers', label: 'Ofertas', icon: Tag },
+  { href: '/acervo', label: 'Acervo', icon: Archive },
   { href: '/settings', label: 'Ajustes', icon: Settings },
 ]
 
