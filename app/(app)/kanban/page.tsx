@@ -1,0 +1,19 @@
+export const dynamic = 'force-dynamic'
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { KanbanPageClient } from './KanbanPageClient'
+import type { Profile } from '@/lib/types'
+
+export default async function KanbanPage() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single()
+
+  return <KanbanPageClient profile={profile as Profile} />
+}
