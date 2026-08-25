@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Save, Trash2, Plus, Tag } from 'lucide-react'
+import { X, Save, Trash2, Plus, Tag, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import {
@@ -36,8 +36,6 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-
-  // Label management
   const [managingLabels, setManagingLabels] = useState(false)
   const [newLabelName, setNewLabelName] = useState('')
   const [newLabelColor, setNewLabelColor] = useState('#7C3AED')
@@ -85,10 +83,20 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
     }
   }
 
-  function toggleLabel(id: string) {
-    setSelectedLabelIds(prev =>
-      prev.includes(id) ? prev.filter(l => l !== id) : [...prev, id]
-    )
+  // Auto-salva a seleção de etiquetas imediatamente no card
+  async function toggleLabel(id: string) {
+    if (!card) return
+    const newIds = selectedLabelIds.includes(id)
+      ? selectedLabelIds.filter(l => l !== id)
+      : [...selectedLabelIds, id]
+    setSelectedLabelIds(newIds)
+    try {
+      await updateCard.mutateAsync({ id: card.id, label_ids: newIds })
+    } catch {
+      // Reverte se falhar
+      setSelectedLabelIds(selectedLabelIds)
+      toast.error('Erro ao salvar etiqueta.')
+    }
   }
 
   async function addLabel() {
@@ -99,14 +107,24 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
       name,
       color: newLabelColor,
     }
-    await saveLabels.mutateAsync([...labels, label])
-    setNewLabelName('')
-    setNewLabelColor('#7C3AED')
+    try {
+      await saveLabels.mutateAsync([...labels, label])
+      setNewLabelName('')
+      setNewLabelColor('#7C3AED')
+      toast.success(`Etiqueta "${name}" criada!`)
+    } catch {
+      toast.error('Erro ao criar etiqueta.')
+    }
   }
 
   async function removeLabel(id: string) {
-    await saveLabels.mutateAsync(labels.filter(l => l.id !== id))
-    setSelectedLabelIds(prev => prev.filter(lid => lid !== id))
+    const newLabels = labels.filter(l => l.id !== id)
+    try {
+      await saveLabels.mutateAsync(newLabels)
+      setSelectedLabelIds(prev => prev.filter(lid => lid !== id))
+    } catch {
+      toast.error('Erro ao remover etiqueta.')
+    }
   }
 
   return (
@@ -155,7 +173,7 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
 
               {/* Etiquetas */}
               <div>
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-3">
                   <label className="text-xs font-600 text-[#9090A8]">Etiquetas</label>
                   <button
                     onClick={() => setManagingLabels(p => !p)}
@@ -166,35 +184,42 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
                   </button>
                 </div>
 
-                {/* Label chips selector */}
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  {labels.length === 0 && !managingLabels && (
-                    <p className="text-[10px] text-[#5A5A70]">Nenhuma etiqueta criada ainda.</p>
-                  )}
-                  {labels.map(lbl => {
-                    const active = selectedLabelIds.includes(lbl.id)
-                    return (
-                      <button
-                        key={lbl.id}
-                        onClick={() => toggleLabel(lbl.id)}
-                        className={cn(
-                          'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-600 border transition-all',
-                          active
-                            ? 'border-transparent text-white'
-                            : 'border-[#22222E] text-[#9090A8] hover:border-current'
-                        )}
-                        style={active ? { backgroundColor: lbl.color } : { color: lbl.color }}
-                      >
-                        {active && <span className="text-[8px]">✓</span>}
-                        {lbl.name}
-                      </button>
-                    )
-                  })}
-                </div>
+                {/* Chips de seleção — auto-salva ao clicar */}
+                {labels.length === 0 && !managingLabels ? (
+                  <p className="text-[10px] text-[#5A5A70]">
+                    Nenhuma etiqueta criada. Clique em "Gerenciar" para criar.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {labels.map(lbl => {
+                      const active = selectedLabelIds.includes(lbl.id)
+                      return (
+                        <button
+                          key={lbl.id}
+                          onClick={() => toggleLabel(lbl.id)}
+                          className={cn(
+                            'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-600 border transition-all',
+                            active
+                              ? 'border-transparent text-white'
+                              : 'border-[#22222E] bg-transparent hover:border-current'
+                          )}
+                          style={active
+                            ? { backgroundColor: lbl.color }
+                            : { color: lbl.color }
+                          }
+                        >
+                          {active && <Check size={9} strokeWidth={3} />}
+                          {lbl.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
 
-                {/* Label manager */}
+                {/* Gerenciador de etiquetas */}
                 {managingLabels && (
                   <div className="bg-[#0A0A0F] border border-[#22222E] rounded-xl p-3 space-y-3">
+                    {/* Lista existente */}
                     {labels.map(lbl => (
                       <div key={lbl.id} className="flex items-center gap-2">
                         <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: lbl.color }} />
@@ -207,45 +232,52 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
                         </button>
                       </div>
                     ))}
-                    {/* Add label */}
-                    <div className="flex items-center gap-2 pt-2 border-t border-[#22222E]">
-                      <label className="relative w-6 h-6 rounded-full cursor-pointer shrink-0">
-                        <span className="block w-6 h-6 rounded-full border border-[#22222E]" style={{ backgroundColor: newLabelColor }} />
+
+                    {/* Adicionar nova etiqueta */}
+                    <div className="pt-2 border-t border-[#22222E] space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="relative w-6 h-6 rounded-full cursor-pointer shrink-0">
+                          <span
+                            className="block w-6 h-6 rounded-full border border-[#22222E]"
+                            style={{ backgroundColor: newLabelColor }}
+                          />
+                          <input
+                            type="color"
+                            value={newLabelColor}
+                            onChange={e => setNewLabelColor(e.target.value)}
+                            className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                          />
+                        </label>
                         <input
-                          type="color"
-                          value={newLabelColor}
-                          onChange={e => setNewLabelColor(e.target.value)}
-                          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                          value={newLabelName}
+                          onChange={e => setNewLabelName(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && addLabel()}
+                          placeholder="Nome da etiqueta..."
+                          className="flex-1 bg-transparent text-xs text-[#F0F0F8] placeholder:text-[#5A5A70] focus:outline-none"
                         />
-                      </label>
-                      <input
-                        value={newLabelName}
-                        onChange={e => setNewLabelName(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && addLabel()}
-                        placeholder="Nome da etiqueta..."
-                        className="flex-1 bg-transparent text-xs text-[#F0F0F8] placeholder:text-[#5A5A70] focus:outline-none"
-                      />
-                      <button
-                        onClick={addLabel}
-                        disabled={!newLabelName.trim()}
-                        className="text-[#5A5A70] hover:text-[#8B5CF6] disabled:opacity-30 transition-colors"
-                      >
-                        <Plus size={14} />
-                      </button>
-                    </div>
-                    {/* Color presets */}
-                    <div className="flex gap-1.5 flex-wrap">
-                      {LABEL_COLORS.map(c => (
                         <button
-                          key={c}
-                          onClick={() => setNewLabelColor(c)}
-                          className={cn(
-                            'w-5 h-5 rounded-full transition-all',
-                            newLabelColor === c && 'ring-2 ring-offset-1 ring-offset-[#0A0A0F] ring-white'
-                          )}
-                          style={{ backgroundColor: c }}
-                        />
-                      ))}
+                          onClick={addLabel}
+                          disabled={!newLabelName.trim() || saveLabels.isPending}
+                          className="text-[#5A5A70] hover:text-[#8B5CF6] disabled:opacity-30 transition-colors"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+
+                      {/* Cores predefinidas */}
+                      <div className="flex gap-1.5 flex-wrap">
+                        {LABEL_COLORS.map(c => (
+                          <button
+                            key={c}
+                            onClick={() => setNewLabelColor(c)}
+                            className={cn(
+                              'w-5 h-5 rounded-full transition-all',
+                              newLabelColor === c && 'ring-2 ring-offset-1 ring-offset-[#0A0A0F] ring-white scale-110'
+                            )}
+                            style={{ backgroundColor: c }}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -269,7 +301,7 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
                   onClick={onClose}
                   className="px-4 py-2 rounded-lg text-xs font-600 text-[#9090A8] hover:text-[#F0F0F8] border border-[#22222E] hover:border-[#7C3AED40] transition-colors"
                 >
-                  Cancelar
+                  Fechar
                 </button>
                 <button
                   onClick={handleSave}
