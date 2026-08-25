@@ -28,6 +28,7 @@ export function SettingsPageClient({ profile }: SettingsPageClientProps) {
   const saveStatuses = useSaveTaskStatuses()
 
   const [avatarColor, setAvatarColor] = useState(profile.avatar_color)
+  const [displayName, setDisplayName] = useState<string>(profile.name)
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [templates, setTemplates] = useState<(RecurringTemplate & { offer_name?: string; offer_emoji?: string })[]>([])
@@ -56,11 +57,12 @@ export function SettingsPageClient({ profile }: SettingsPageClientProps) {
   }
 
   async function saveProfile() {
+    if (!displayName.trim()) { toast.error('Nome obrigatório.'); return }
     setSaving(true)
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ avatar_color: avatarColor })
+        .update({ avatar_color: avatarColor, name: displayName.trim() as 'Matheus' | 'Kauan' })
         .eq('id', profile.id)
       if (error) throw error
       toast.success('Perfil atualizado!')
@@ -137,16 +139,21 @@ export function SettingsPageClient({ profile }: SettingsPageClientProps) {
             <h2 className="text-sm font-700 text-[#F0F0F8] mb-4">Perfil</h2>
             <div className="p-5 bg-[#111118] rounded-xl border border-[#22222E] space-y-4">
               <div className="flex items-center gap-4">
-                <UserAvatar name={profile.name} color={avatarColor} size="lg" />
+                <UserAvatar name={displayName || profile.name} color={avatarColor} size="lg" />
                 <div>
-                  <p className="text-sm font-700 text-[#F0F0F8]">{profile.name}</p>
+                  <p className="text-sm font-700 text-[#F0F0F8]">{displayName || profile.name}</p>
                   <p className="text-xs text-[#5A5A70]">{profile.email}</p>
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-600 text-[#9090A8] mb-2">Nome</label>
-                <input value={profile.name} readOnly className={cn(inputClass, 'opacity-50 cursor-not-allowed')} />
+                <input
+                  value={displayName}
+                  onChange={e => setDisplayName(e.target.value)}
+                  placeholder="Seu nome..."
+                  className={inputClass}
+                />
               </div>
 
               <div>
