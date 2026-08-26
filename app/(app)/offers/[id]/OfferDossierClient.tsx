@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { OFFER_STATUSES, TASK_CATEGORIES, ASSIGNEE_COLORS } from '@/lib/constants'
 import { getWeekKey } from '@/lib/weeks'
 import { createClient } from '@/lib/supabase/client'
-import { useUpdateOffer } from '@/hooks/useOffers'
+import { useUpdateOffer, useDeleteOffer } from '@/hooks/useOffers'
 import { useCreatives, useCreateCreative, useUpdateCreative, useDeleteCreative } from '@/hooks/useCreatives'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { AssigneeBadge } from '@/components/shared/AssigneeBadge'
@@ -15,6 +15,7 @@ import { OfferModal } from '@/components/offers/OfferModal'
 import { RecurringTemplateEditor } from '@/components/offers/RecurringTemplateEditor'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { toast } from 'sonner'
+import { logActivity } from '@/lib/activity'
 import type { Offer, Task, RecurringTemplate, Profile, CreativeTag } from '@/lib/types'
 
 const CREATIVE_TAGS: { value: CreativeTag; label: string; color: string; bg: string; icon?: string }[] = [
@@ -95,6 +96,21 @@ export function OfferDossierClient({ offer, profile }: OfferDossierClientProps) 
     reader.readAsDataURL(file)
   }
 
+  const deleteOffer = useDeleteOffer()
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  async function handleDeleteOffer() {
+    if (!confirmDelete) { setConfirmDelete(true); return }
+    try {
+      await deleteOffer.mutateAsync(offer.id)
+      toast.success('Oferta excluída.')
+      router.replace('/offers')
+    } catch {
+      toast.error('Erro ao excluir oferta.')
+      setConfirmDelete(false)
+    }
+  }
+
   const statusConfig = OFFER_STATUSES.find(s => s.value === offer.status)
 
   useEffect(() => {
@@ -151,6 +167,7 @@ export function OfferDossierClient({ offer, profile }: OfferDossierClientProps) 
       setNewCreativeTag(undefined)
       setAddingCreative(false)
       toast.success('Criativo adicionado!')
+      logActivity({ action: 'creative_added', title: `Criativo adicionado: "${newCreativeName.trim()}" em "${offer.name}"`, entity_type: 'creative', entity_id: offer.id })
     } catch {
       toast.error('Erro ao adicionar criativo.')
     }
@@ -230,6 +247,20 @@ export function OfferDossierClient({ offer, profile }: OfferDossierClientProps) 
               {statusConfig.label}
             </span>
           )}
+          <button
+            onClick={handleDeleteOffer}
+            disabled={deleteOffer.isPending}
+            onBlur={() => setConfirmDelete(false)}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-600 border transition-all',
+              confirmDelete
+                ? 'bg-red-500 border-red-500 text-white'
+                : 'border-[#22222E] text-[#5A5A70] hover:text-red-400 hover:border-red-400/40'
+            )}
+          >
+            <Trash2 size={14} />
+            {confirmDelete ? 'Confirmar' : 'Excluir'}
+          </button>
           <button
             onClick={() => setEditModalOpen(true)}
             className="p-2 rounded-lg text-[#9090A8] hover:text-[#F0F0F8] hover:bg-[#1A1A24] border border-[#22222E] transition-colors"

@@ -101,12 +101,28 @@ export function useUpdateCard() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<CustomCard> & { id: string }) => {
+      const payload: Record<string, unknown> = { ...updates, updated_at: new Date().toISOString() }
       const { data, error } = await supabase
         .from('kanban_cards')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update(payload)
         .eq('id', id)
         .select()
         .single()
+
+      // Se a coluna `links` ainda não existe no banco (migration_v8 pendente),
+      // tenta novamente sem ela para não bloquear o fluxo
+      if (error?.code === '42703' && 'links' in payload) {
+        const { links: _l, ...safePayload } = payload
+        const { data: d2, error: e2 } = await supabase
+          .from('kanban_cards')
+          .update(safePayload)
+          .eq('id', id)
+          .select()
+          .single()
+        if (e2) throw e2
+        return d2 as CustomCard
+      }
+
       if (error) throw error
       return data as CustomCard
     },

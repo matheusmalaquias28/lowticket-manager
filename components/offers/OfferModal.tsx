@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { OFFER_STATUSES, DEFAULT_OFFER_EMOJIS, DEFAULT_OFFER_CHECKLIST_ITEMS } from '@/lib/constants'
 import { useCreateOffer, useUpdateOffer } from '@/hooks/useOffers'
+import { logActivity } from '@/lib/activity'
 import { useCreateTask } from '@/hooks/useTasks'
 import { getWeekKey } from '@/lib/weeks'
 import type { Offer, OfferStatus } from '@/lib/types'
@@ -87,8 +88,10 @@ export function OfferModal({ open, onClose, offer, currentUserId, weekKey }: Off
       if (isEditing && offer) {
         await updateOffer.mutateAsync({ id: offer.id, ...payload })
         toast.success('Oferta atualizada!')
+        logActivity({ action: 'offer_updated', title: `Oferta atualizada: "${payload.name}"`, entity_type: 'offer', entity_id: offer.id })
       } else {
         const newOffer = await createOffer.mutateAsync({ ...payload, created_by: currentUserId })
+        logActivity({ action: 'offer_created', title: `Nova oferta criada: "${payload.name}"`, entity_type: 'offer', entity_id: newOffer?.id })
 
         if (createDefaultTasks && newOffer?.id) {
           const wk = weekKey ?? getWeekKey()

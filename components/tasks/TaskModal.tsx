@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { TASK_CATEGORIES, ASSIGNEE_COLORS, DEFAULT_TASK_STATUSES } from '@/lib/constants'
 import { DAYS_OF_WEEK, getWeekKey, navigateWeek } from '@/lib/weeks'
 import { useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/useTasks'
+import { logActivity } from '@/lib/activity'
 import { useOffers } from '@/hooks/useOffers'
 import { useTaskStatuses } from '@/hooks/useTaskStatuses'
 import { ChecklistEditor } from './ChecklistEditor'
@@ -157,9 +158,17 @@ export function TaskModal({
       if (isEditing && task) {
         await updateTask.mutateAsync({ id: task.id, ...payload })
         toast.success('Tarefa atualizada!')
+        // Log: link adicionado?
+        const newLinks = links.filter(l => !task.links.some(ol => ol.url === l.url))
+        if (newLinks.length > 0) {
+          logActivity({ action: 'link_added', title: `Link adicionado em "${payload.title}"`, actor_name: assignee, entity_type: 'task', entity_id: task.id })
+        } else {
+          logActivity({ action: 'task_updated', title: `Demanda atualizada: "${payload.title}"`, actor_name: assignee, entity_type: 'task', entity_id: task.id })
+        }
       } else {
-        await createTask.mutateAsync({ ...payload, created_by: currentUserId })
+        const created = await createTask.mutateAsync({ ...payload, created_by: currentUserId })
         toast.success('Tarefa criada!')
+        logActivity({ action: 'task_created', title: `Nova demanda criada: "${payload.title}"`, actor_name: assignee, entity_type: 'task', entity_id: created?.id })
       }
 
       onClose()
