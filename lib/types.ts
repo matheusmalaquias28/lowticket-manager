@@ -120,6 +120,7 @@ export interface CustomCard {
   title: string
   description?: string
   label_ids: string[]
+  links: TaskLink[]
   position: number
   created_at: string
   updated_at: string
@@ -146,4 +147,17 @@ export interface Week {
   start_date: string
   end_date: string
   generated_at?: string
+}
+
+export type CreativeTag = 'untested' | 'active' | 'validated' | 'roi_supreme'
+
+export interface OfferCreative {
+  id: string
+  offer_id: string
+  name: string
+  drive_url?: string
+  image_url?: string
+  tag?: CreativeTag
+  created_at: string
+  updated_at: string
 }

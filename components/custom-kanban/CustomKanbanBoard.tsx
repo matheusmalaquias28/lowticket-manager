@@ -7,13 +7,14 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Plus, Columns } from 'lucide-react'
+import { Plus, Columns, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import {
   useCustomColumns,
   useCustomCards,
   useCreateColumn,
+  useKanbanLabels,
 } from '@/hooks/useCustomKanban'
 import { CustomColumnComp } from './CustomColumn'
 import { CardModal } from './CardModal'
@@ -47,6 +48,7 @@ function SortableColumn({
 export function CustomKanbanBoard() {
   const { data: columns = [] } = useCustomColumns()
   const { data: allCards = [] } = useCustomCards()
+  const { data: labels = [] } = useKanbanLabels()
   const createColumn = useCreateColumn()
 
   const [modalCard, setModalCard] = useState<CustomCard | null>(null)
@@ -54,10 +56,21 @@ export function CustomKanbanBoard() {
   const [addingColumn, setAddingColumn] = useState(false)
   const [newColName, setNewColName] = useState('')
   const [newColColor, setNewColColor] = useState('#7C3AED')
+  const [filterLabelIds, setFilterLabelIds] = useState<string[]>([])
+
+  function toggleFilter(id: string) {
+    setFilterLabelIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
+
+  const filteredCards = filterLabelIds.length === 0
+    ? allCards
+    : allCards.filter(c => filterLabelIds.every(id => (c.label_ids ?? []).includes(id)))
 
   const getCardsForColumn = useCallback(
-    (colId: string) => allCards.filter(c => c.column_id === colId),
-    [allCards]
+    (colId: string) => filteredCards.filter(c => c.column_id === colId),
+    [filteredCards]
   )
 
   const columnIds = columns.map(c => `sortcol-${c.id}`)
@@ -96,6 +109,40 @@ export function CustomKanbanBoard() {
           Nova coluna
         </button>
       </div>
+
+      {/* Filtro por etiquetas */}
+      {labels.length > 0 && (
+        <div className="flex items-center gap-2 px-4 pb-3 flex-wrap">
+          <span className="text-[10px] font-600 text-[#5A5A70] uppercase tracking-wider">Filtrar:</span>
+          {labels.map(lbl => {
+            const active = filterLabelIds.includes(lbl.id)
+            return (
+              <button
+                key={lbl.id}
+                onClick={() => toggleFilter(lbl.id)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-600 border transition-all',
+                  active
+                    ? 'border-transparent text-white'
+                    : 'border-[#22222E] hover:border-current bg-transparent'
+                )}
+                style={active ? { backgroundColor: lbl.color } : { color: lbl.color }}
+              >
+                {lbl.name}
+                {active && <X size={9} strokeWidth={3} />}
+              </button>
+            )
+          })}
+          {filterLabelIds.length > 0 && (
+            <button
+              onClick={() => setFilterLabelIds([])}
+              className="text-[10px] text-[#5A5A70] hover:text-[#F0F0F8] transition-colors"
+            >
+              Limpar
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Board */}
       <div className="flex gap-3 px-4 pb-4 overflow-x-auto">

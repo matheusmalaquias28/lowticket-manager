@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Save, Trash2, Plus, Tag, Check } from 'lucide-react'
+import { X, Save, Trash2, Plus, Tag, Check, Link2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import {
@@ -11,7 +11,8 @@ import {
   useKanbanLabels,
   useSaveKanbanLabels,
 } from '@/hooks/useCustomKanban'
-import type { CustomCard, KanbanLabel } from '@/lib/types'
+import { LinksList } from '@/components/tasks/LinksList'
+import type { CustomCard, KanbanLabel, TaskLink } from '@/lib/types'
 
 interface CardModalProps {
   card: CustomCard | null
@@ -34,23 +35,39 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([])
+  const [links, setLinks] = useState<TaskLink[]>([])
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [managingLabels, setManagingLabels] = useState(false)
+
+  // Dropdown de etiquetas
+  const [labelDropdownOpen, setLabelDropdownOpen] = useState(false)
   const [newLabelName, setNewLabelName] = useState('')
   const [newLabelColor, setNewLabelColor] = useState('#7C3AED')
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (card) {
       setTitle(card.title)
       setDescription(card.description ?? '')
       setSelectedLabelIds(card.label_ids ?? [])
+      setLinks(card.links ?? [])
     }
     setConfirmDelete(false)
-    setManagingLabels(false)
+    setLabelDropdownOpen(false)
     setNewLabelName('')
     setNewLabelColor('#7C3AED')
   }, [card, open])
+
+  // Fecha dropdown ao clicar fora
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setLabelDropdownOpen(false)
+      }
+    }
+    if (labelDropdownOpen) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [labelDropdownOpen])
 
   async function handleSave() {
     if (!card || !title.trim()) return
@@ -61,6 +78,7 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
         title: title.trim(),
         description: description.trim() || undefined,
         label_ids: selectedLabelIds,
+        links,
       })
       toast.success('Card atualizado!')
       onClose()
@@ -83,7 +101,6 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
     }
   }
 
-  // Auto-salva a seleção de etiquetas imediatamente no card
   async function toggleLabel(id: string) {
     if (!card) return
     const newIds = selectedLabelIds.includes(id)
@@ -93,7 +110,6 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
     try {
       await updateCard.mutateAsync({ id: card.id, label_ids: newIds })
     } catch {
-      // Reverte se falhar
       setSelectedLabelIds(selectedLabelIds)
       toast.error('Erro ao salvar etiqueta.')
     }
@@ -102,11 +118,7 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
   async function addLabel() {
     const name = newLabelName.trim()
     if (!name) return
-    const label: KanbanLabel = {
-      id: `lbl_${Date.now()}`,
-      name,
-      color: newLabelColor,
-    }
+    const label: KanbanLabel = { id: `lbl_${Date.now()}`, name, color: newLabelColor }
     try {
       await saveLabels.mutateAsync([...labels, label])
       setNewLabelName('')
@@ -118,9 +130,8 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
   }
 
   async function removeLabel(id: string) {
-    const newLabels = labels.filter(l => l.id !== id)
     try {
-      await saveLabels.mutateAsync(newLabels)
+      await saveLabels.mutateAsync(labels.filter(l => l.id !== id))
       setSelectedLabelIds(prev => prev.filter(lid => lid !== id))
     } catch {
       toast.error('Erro ao remover etiqueta.')
@@ -171,116 +182,136 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
                 />
               </div>
 
-              {/* Etiquetas */}
+              {/* Etiquetas — dropdown */}
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <label className="text-xs font-600 text-[#9090A8]">Etiquetas</label>
-                  <button
-                    onClick={() => setManagingLabels(p => !p)}
-                    className="flex items-center gap-1 text-[10px] text-[#5A5A70] hover:text-[#8B5CF6] transition-colors"
-                  >
-                    <Tag size={11} />
-                    {managingLabels ? 'Fechar' : 'Gerenciar'}
-                  </button>
+                <label className="block text-xs font-600 text-[#9090A8] mb-2">Etiquetas</label>
+
+                {/* Chips selecionadas */}
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {selectedLabelIds.map(id => {
+                    const lbl = labels.find(l => l.id === id)
+                    if (!lbl) return null
+                    return (
+                      <span
+                        key={id}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-600 text-white"
+                        style={{ backgroundColor: lbl.color }}
+                      >
+                        {lbl.name}
+                      </span>
+                    )
+                  })}
                 </div>
 
-                {/* Chips de seleção — auto-salva ao clicar */}
-                {labels.length === 0 && !managingLabels ? (
-                  <p className="text-[10px] text-[#5A5A70]">
-                    Nenhuma etiqueta criada. Clique em "Gerenciar" para criar.
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    {labels.map(lbl => {
-                      const active = selectedLabelIds.includes(lbl.id)
-                      return (
-                        <button
-                          key={lbl.id}
-                          onClick={() => toggleLabel(lbl.id)}
-                          className={cn(
-                            'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-600 border transition-all',
-                            active
-                              ? 'border-transparent text-white'
-                              : 'border-[#22222E] bg-transparent hover:border-current'
-                          )}
-                          style={active
-                            ? { backgroundColor: lbl.color }
-                            : { color: lbl.color }
-                          }
-                        >
-                          {active && <Check size={9} strokeWidth={3} />}
-                          {lbl.name}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
+                {/* Botão que abre o dropdown */}
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setLabelDropdownOpen(p => !p)}
+                    className="flex items-center gap-1.5 text-xs text-[#5A5A70] hover:text-[#8B5CF6] border border-[#22222E] hover:border-[#7C3AED40] rounded-lg px-2.5 py-1.5 transition-colors"
+                  >
+                    <Tag size={12} />
+                    Gerenciar etiquetas
+                  </button>
 
-                {/* Gerenciador de etiquetas */}
-                {managingLabels && (
-                  <div className="bg-[#0A0A0F] border border-[#22222E] rounded-xl p-3 space-y-3">
-                    {/* Lista existente */}
-                    {labels.map(lbl => (
-                      <div key={lbl.id} className="flex items-center gap-2">
-                        <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: lbl.color }} />
-                        <span className="flex-1 text-xs text-[#F0F0F8]">{lbl.name}</span>
-                        <button
-                          onClick={() => removeLabel(lbl.id)}
-                          className="text-[#5A5A70] hover:text-[#EF4444] transition-colors"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    ))}
+                  <AnimatePresence>
+                    {labelDropdownOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                        transition={{ duration: 0.12 }}
+                        className="absolute left-0 top-full mt-1.5 z-10 w-64 bg-[#1A1A24] border border-[#22222E] rounded-xl shadow-xl p-3 space-y-1"
+                      >
+                        {/* Etiquetas existentes */}
+                        {labels.length === 0 && (
+                          <p className="text-[11px] text-[#5A5A70] py-1">Nenhuma etiqueta criada ainda.</p>
+                        )}
+                        {labels.map(lbl => {
+                          const active = selectedLabelIds.includes(lbl.id)
+                          return (
+                            <div key={lbl.id} className="flex items-center gap-2 group">
+                              <button
+                                onClick={() => toggleLabel(lbl.id)}
+                                className={cn(
+                                  'flex-1 flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-600 transition-colors text-left',
+                                  active ? 'bg-[#7C3AED1A]' : 'hover:bg-[#22222E]'
+                                )}
+                              >
+                                <span
+                                  className="w-3 h-3 rounded-full shrink-0"
+                                  style={{ backgroundColor: lbl.color }}
+                                />
+                                <span className={active ? 'text-[#F0F0F8]' : 'text-[#9090A8]'}>{lbl.name}</span>
+                                {active && <Check size={11} className="ml-auto text-[#8B5CF6]" strokeWidth={3} />}
+                              </button>
+                              <button
+                                onClick={() => removeLabel(lbl.id)}
+                                className="opacity-0 group-hover:opacity-100 text-[#5A5A70] hover:text-[#EF4444] transition-all shrink-0 p-0.5"
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            </div>
+                          )
+                        })}
 
-                    {/* Adicionar nova etiqueta */}
-                    <div className="pt-2 border-t border-[#22222E] space-y-2">
-                      <div className="flex items-center gap-2">
-                        <label className="relative w-6 h-6 rounded-full cursor-pointer shrink-0">
-                          <span
-                            className="block w-6 h-6 rounded-full border border-[#22222E]"
-                            style={{ backgroundColor: newLabelColor }}
-                          />
-                          <input
-                            type="color"
-                            value={newLabelColor}
-                            onChange={e => setNewLabelColor(e.target.value)}
-                            className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                          />
-                        </label>
-                        <input
-                          value={newLabelName}
-                          onChange={e => setNewLabelName(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && addLabel()}
-                          placeholder="Nome da etiqueta..."
-                          className="flex-1 bg-transparent text-xs text-[#F0F0F8] placeholder:text-[#5A5A70] focus:outline-none"
-                        />
-                        <button
-                          onClick={addLabel}
-                          disabled={!newLabelName.trim() || saveLabels.isPending}
-                          className="text-[#5A5A70] hover:text-[#8B5CF6] disabled:opacity-30 transition-colors"
-                        >
-                          <Plus size={14} />
-                        </button>
-                      </div>
+                        {/* Adicionar nova etiqueta */}
+                        <div className="pt-2 border-t border-[#22222E] space-y-2">
+                          <p className="text-[10px] text-[#5A5A70] font-600 uppercase tracking-wide">Nova etiqueta</p>
+                          <div className="flex items-center gap-2">
+                            <label className="relative w-6 h-6 rounded-full cursor-pointer shrink-0">
+                              <span
+                                className="block w-6 h-6 rounded-full border border-[#22222E]"
+                                style={{ backgroundColor: newLabelColor }}
+                              />
+                              <input
+                                type="color"
+                                value={newLabelColor}
+                                onChange={e => setNewLabelColor(e.target.value)}
+                                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                              />
+                            </label>
+                            <input
+                              value={newLabelName}
+                              onChange={e => setNewLabelName(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && addLabel()}
+                              placeholder="Nome da etiqueta..."
+                              className="flex-1 bg-[#0A0A0F] border border-[#22222E] rounded-lg px-2 py-1 text-xs text-[#F0F0F8] placeholder:text-[#5A5A70] focus:outline-none focus:border-[#7C3AED]"
+                            />
+                            <button
+                              onClick={addLabel}
+                              disabled={!newLabelName.trim() || saveLabels.isPending}
+                              className="text-[#5A5A70] hover:text-[#8B5CF6] disabled:opacity-30 transition-colors p-0.5"
+                            >
+                              <Plus size={14} />
+                            </button>
+                          </div>
+                          <div className="flex gap-1.5 flex-wrap">
+                            {LABEL_COLORS.map(c => (
+                              <button
+                                key={c}
+                                onClick={() => setNewLabelColor(c)}
+                                className={cn(
+                                  'w-4 h-4 rounded-full transition-all',
+                                  newLabelColor === c && 'ring-2 ring-offset-1 ring-offset-[#1A1A24] ring-white scale-110'
+                                )}
+                                style={{ backgroundColor: c }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
 
-                      {/* Cores predefinidas */}
-                      <div className="flex gap-1.5 flex-wrap">
-                        {LABEL_COLORS.map(c => (
-                          <button
-                            key={c}
-                            onClick={() => setNewLabelColor(c)}
-                            className={cn(
-                              'w-5 h-5 rounded-full transition-all',
-                              newLabelColor === c && 'ring-2 ring-offset-1 ring-offset-[#0A0A0F] ring-white scale-110'
-                            )}
-                            style={{ backgroundColor: c }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
+              {/* Links relacionados */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Link2 size={13} className="text-[#5A5A70]" />
+                  <label className="text-xs font-600 text-[#9090A8]">Links relacionados</label>
+                </div>
+                <LinksList links={links} onChange={setLinks} />
               </div>
             </div>
 

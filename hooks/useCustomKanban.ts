@@ -86,7 +86,7 @@ export function useCreateCard() {
     mutationFn: async (payload: Pick<CustomCard, 'column_id' | 'title' | 'position'>) => {
       const { data, error } = await supabase
         .from('kanban_cards')
-        .insert({ ...payload, label_ids: [] })
+        .insert({ ...payload, label_ids: [], links: [] })
         .select()
         .single()
       if (error) throw error
