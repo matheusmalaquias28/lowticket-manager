@@ -78,7 +78,8 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
         title: title.trim(),
         description: description.trim() || undefined,
         label_ids: selectedLabelIds,
-        links,
+        // Só envia links se a coluna já existe no banco (migration_v8)
+        ...(card.links !== undefined ? { links } : {}),
       })
       toast.success('Card atualizado!')
       onClose()

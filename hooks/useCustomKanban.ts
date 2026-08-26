@@ -86,7 +86,7 @@ export function useCreateCard() {
     mutationFn: async (payload: Pick<CustomCard, 'column_id' | 'title' | 'position'>) => {
       const { data, error } = await supabase
         .from('kanban_cards')
-        .insert({ ...payload, label_ids: [], links: [] })
+        .insert({ ...payload, label_ids: [] })
         .select()
         .single()
       if (error) throw error
@@ -111,7 +111,12 @@ export function useUpdateCard() {
 
       // Se a coluna `links` ainda não existe no banco (migration_v8 pendente),
       // tenta novamente sem ela para não bloquear o fluxo
-      if (error?.code === '42703' && 'links' in payload) {
+      const isLinksColumnError =
+        'links' in payload &&
+        (String(error?.code) === '42703' ||
+          error?.message?.includes('links') ||
+          error?.details?.includes('links'))
+      if (isLinksColumnError) {
         const { links: _l, ...safePayload } = payload
         const { data: d2, error: e2 } = await supabase
           .from('kanban_cards')
