@@ -28,7 +28,11 @@ import { Header } from '@/components/layout/Header'
 import { useCurrentWeek } from '@/hooks/useCurrentWeek'
 import { useCreateTask, useTasks, useUpdateTask } from '@/hooks/useTasks'
 import { useCustomColumns, useCustomCards, useUpdateColumn, useUpdateCard } from '@/hooks/useCustomKanban'
-import type { Profile, Task, CustomCard, CustomColumn } from '@/lib/types'
+import { cn } from '@/lib/utils'
+import { ASSIGNEE_COLORS } from '@/lib/constants'
+import type { Profile, Task, CustomCard, CustomColumn, AssigneeName } from '@/lib/types'
+
+type AssigneeFilter = 'all' | AssigneeName
 
 type ActiveItem =
   | { type: 'task'; data: Task }
@@ -83,6 +87,9 @@ export function KanbanPageClient({ profile }: KanbanPageClientProps) {
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [defaultDay, setDefaultDay] = useState(1)
+
+  // Filtro por responsável
+  const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>('all')
 
   // Drag active item
   const [activeItem, setActiveItem] = useState<ActiveItem | null>(null)
@@ -256,9 +263,45 @@ export function KanbanPageClient({ profile }: KanbanPageClientProps) {
     }
   }
 
+  const visibleTasks = assigneeFilter === 'all'
+    ? localTasks
+    : localTasks.filter(t => t.assignee_name === assigneeFilter)
+
   return (
     <>
       <Header title="Kanban">
+        {/* Filtro de responsável */}
+        <div className="flex items-center rounded-lg border border-[#22222E] overflow-hidden">
+          {(['all', 'Matheus', 'Kauan'] as AssigneeFilter[]).map(opt => {
+            const isAll = opt === 'all'
+            const color = isAll ? null : ASSIGNEE_COLORS[opt]
+            const active = assigneeFilter === opt
+            return (
+              <button
+                key={opt}
+                onClick={() => setAssigneeFilter(opt)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 text-xs font-600 transition-all',
+                  active
+                    ? 'text-white'
+                    : 'text-[#5A5A70] hover:text-[#F0F0F8] hover:bg-[#1A1A24]'
+                )}
+                style={active && color ? { backgroundColor: color } : active ? { backgroundColor: '#22222E' } : {}}
+              >
+                {!isAll && (
+                  <span
+                    className="w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-700 text-white shrink-0"
+                    style={{ backgroundColor: color! }}
+                  >
+                    {(opt as string)[0]}
+                  </span>
+                )}
+                {isAll ? 'Todos' : opt}
+              </button>
+            )
+          })}
+        </div>
+
         <button
           onClick={() => openNew(1)}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-600 bg-[#7C3AED] hover:bg-[#8B5CF6] text-white transition-colors active:scale-[0.98]"
@@ -305,7 +348,7 @@ export function KanbanPageClient({ profile }: KanbanPageClientProps) {
               onAddTask={openNew}
               onAddDivider={handleAddDivider}
               isPastWeek={isPastWeek}
-              localTasks={localTasks}
+              localTasks={visibleTasks}
               isLoading={tasksLoading}
             />
           </div>
