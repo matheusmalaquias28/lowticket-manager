@@ -149,6 +149,148 @@ export interface Week {
   generated_at?: string
 }
 
+export type ContingenciaStatus = 'active' | 'blocked' | 'warming' | 'disabled' | 'restricted'
+export type ContingenciaAccountType = 'personal' | 'business' | 'creator'
+
+export interface ContingenciaBM {
+  id: string
+  name: string
+  bm_id?: string
+  admin_email?: string
+  status: ContingenciaStatus
+  ad_account_count?: number
+  notes?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ContingenciaAdAccount {
+  id: string
+  nickname: string
+  account_id?: string
+  bm_id?: string
+  status: ContingenciaStatus
+  daily_limit?: number
+  spend_limit?: number
+  pixel_id?: string
+  currency?: string
+  country?: string
+  notes?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ContingenciaPage {
+  id: string
+  name: string
+  page_id?: string
+  page_url?: string
+  niche?: string
+  bm_id?: string
+  status: ContingenciaStatus
+  followers?: number
+  notes?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ContingenciaInstagram {
+  id: string
+  username: string
+  profile_url?: string
+  linked_page_id?: string
+  status: ContingenciaStatus
+  followers?: number
+  account_type?: ContingenciaAccountType
+  notes?: string
+  created_at: string
+  updated_at: string
+}
+
+// ─── Utmify ───────────────────────────────────────────────────────────────────
+
+export interface UtmifyProductMetric {
+  productName: string
+  count: number
+  revenue: number // centavos
+}
+
+export interface UtmifyHourlyMetric {
+  hour: number
+  revenue_cents: number
+  profit_cents: number
+  investment_cents: number
+}
+
+export interface UtmifySnapshot {
+  id: string
+  date: string // YYYY-MM-DD
+  dashboard_id?: string
+  // Receita em centavos
+  gross_revenue_cents: number
+  net_revenue_cents: number
+  profit_cents: number
+  pending_revenue_cents: number
+  // Pedidos
+  total_orders: number
+  approved_orders: number
+  pending_orders: number
+  refunded_orders: number
+  // Anúncios em centavos
+  ad_spend_cents: number
+  meta_spend_cents: number
+  tiktok_spend_cents: number
+  google_spend_cents: number
+  // Métricas
+  roi?: number
+  roas?: number
+  cpa_cents?: number
+  avg_ticket_cents?: number
+  profit_margin?: number
+  clicks?: number
+  // Pagamentos
+  pix_orders: number
+  card_orders: number
+  card_refused: number
+  // JSON
+  products_data: UtmifyProductMetric[]
+  hourly_data: UtmifyHourlyMetric[]
+  // Meta
+  synced_at: string
+  created_at: string
+}
+
+// ─── Radar de Ofertas ─────────────────────────────────────────────────────────
+
+export interface RadarKeyword {
+  id: string
+  word: string
+  is_active: boolean
+  created_at: string
+}
+
+export type RadarOfertaStatus = 'novo' | 'analisando' | 'aprovado' | 'descartado'
+
+export interface RadarOferta {
+  id: string
+  keyword_used: string
+  advertiser?: string
+  domain: string
+  active_ads_count?: number
+  days_running?: number
+  niche?: string
+  price?: number
+  ad_link?: string
+  page_link?: string
+  angle?: string
+  score: number
+  justification?: string
+  status: RadarOfertaStatus
+  created_at: string
+}
+
+// ─── Creatives ────────────────────────────────────────────────────────────────
+
 export type CreativeTag = 'untested' | 'active' | 'validated' | 'roi_supreme'
 
 export interface OfferCreative {

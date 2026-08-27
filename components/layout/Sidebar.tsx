@@ -2,17 +2,20 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutGrid, Tag, Settings, LogOut, Archive } from 'lucide-react'
+import { LayoutGrid, Tag, Settings, LogOut, Archive, ShieldAlert, BarChart2, Radar } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { UserAvatar } from './UserAvatar'
 import type { Profile } from '@/lib/types'
 
 const NAV_ITEMS = [
-  { href: '/kanban', label: 'Kanban', icon: LayoutGrid },
-  { href: '/offers', label: 'Ofertas', icon: Tag },
-  { href: '/acervo', label: 'Acervo', icon: Archive },
-  { href: '/settings', label: 'Ajustes', icon: Settings },
+  { href: '/kanban',       label: 'Kanban',       icon: LayoutGrid },
+  { href: '/offers',       label: 'Ofertas',       icon: Tag },
+  { href: '/radar',        label: 'Radar',         icon: Radar },
+  { href: '/metricas',     label: 'Métricas',      icon: BarChart2 },
+  { href: '/acervo',       label: 'Acervo',        icon: Archive },
+  { href: '/contingencia', label: 'Contingência',  icon: ShieldAlert },
+  { href: '/settings',     label: 'Ajustes',       icon: Settings },
 ]
 
 interface SidebarProps {
