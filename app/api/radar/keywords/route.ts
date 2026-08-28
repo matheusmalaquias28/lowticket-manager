@@ -12,7 +12,10 @@ function adminClient() {
 
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization')
-  if (auth !== `Bearer ${process.env.RADAR_WEBHOOK_SECRET}`) {
+  const secretParam = req.nextUrl.searchParams.get('secret')
+  const secret = process.env.RADAR_WEBHOOK_SECRET
+  const isAuthorized = auth === `Bearer ${secret}` || secretParam === secret
+  if (!isAuthorized) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
