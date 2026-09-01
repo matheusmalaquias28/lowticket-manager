@@ -424,8 +424,10 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
     form.append('file', file)
     form.append('path', path)
     const res = await fetch('/api/kanban/upload-creative', { method: 'POST', body: form })
-    const json = await res.json()
-    if (!res.ok) throw new Error(json.error ?? 'Falha no upload da imagem')
+    const text = await res.text()
+    let json: Record<string, unknown>
+    try { json = JSON.parse(text) } catch { throw new Error(`Upload falhou (${res.status})`) }
+    if (!res.ok) throw new Error((json.error as string) ?? 'Falha no upload da imagem')
     return json.url as string
   }
 
