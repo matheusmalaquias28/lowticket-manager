@@ -79,7 +79,6 @@ function ImageLightbox({ url, name, onClose }: { url: string; name: string; onCl
         alt={name}
         className="max-w-[92vw] max-h-[92vh] object-contain rounded-2xl shadow-2xl"
         onClick={e => e.stopPropagation()}
-        style={{ imageRendering: 'high-quality' } as React.CSSProperties}
       />
     </motion.div>
   )
