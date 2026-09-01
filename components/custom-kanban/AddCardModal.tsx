@@ -256,7 +256,6 @@ function CreativeDraftCard({ draft, index, onUpdate, onSetFile, onDelete }: Crea
 // ─── AddCardModal ─────────────────────────────────────────────────────────────
 
 export function AddCardModal({ open, columnId, cardsCount, onClose }: AddCardModalProps) {
-  const supabase = createClient()
   const createCard = useCreateCard()
   const updateCard = useUpdateCard()
   const { data: labels = [] } = useKanbanLabels()
@@ -333,15 +332,25 @@ export function AddCardModal({ open, columnId, cardsCount, onClose }: AddCardMod
   }
 
   async function uploadImage(file: File, path: string): Promise<string> {
-    const form = new FormData()
-    form.append('file', file)
-    form.append('path', path)
-    const res = await fetch('/api/kanban/upload-creative', { method: 'POST', body: form })
+    // Step 1: get signed upload URL from server (only sends the path string, no binary)
+    const res = await fetch('/api/kanban/upload-creative', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    })
     const text = await res.text()
     let json: Record<string, unknown>
-    try { json = JSON.parse(text) } catch { throw new Error(`Upload falhou (${res.status})`) }
-    if (!res.ok) throw new Error((json.error as string) ?? 'Falha no upload da imagem')
-    return json.url as string
+    try { json = JSON.parse(text) } catch { throw new Error(`Falha ao preparar upload (${res.status})`) }
+    if (!res.ok) throw new Error((json.error as string) ?? 'Falha ao preparar upload')
+
+    // Step 2: upload file directly to Supabase (no Next.js body limit)
+    const sb = createClient()
+    const { error } = await sb.storage
+      .from('creatives')
+      .uploadToSignedUrl(path, json.token as string, file, { upsert: true })
+    if (error) throw new Error(`Upload falhou: ${error.message}`)
+
+    return json.publicUrl as string
   }
 
   async function handleSave() {

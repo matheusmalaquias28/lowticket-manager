@@ -420,15 +420,24 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
   const openLightbox = useCallback((url: string, name: string) => setLightbox({ url, name }), [])
 
   async function uploadImage(file: File, path: string): Promise<string> {
-    const form = new FormData()
-    form.append('file', file)
-    form.append('path', path)
-    const res = await fetch('/api/kanban/upload-creative', { method: 'POST', body: form })
+    const res = await fetch('/api/kanban/upload-creative', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    })
     const text = await res.text()
     let json: Record<string, unknown>
-    try { json = JSON.parse(text) } catch { throw new Error(`Upload falhou (${res.status})`) }
-    if (!res.ok) throw new Error((json.error as string) ?? 'Falha no upload da imagem')
-    return json.url as string
+    try { json = JSON.parse(text) } catch { throw new Error(`Falha ao preparar upload (${res.status})`) }
+    if (!res.ok) throw new Error((json.error as string) ?? 'Falha ao preparar upload')
+
+    const { createClient } = await import('@/lib/supabase/client')
+    const sb = createClient()
+    const { error } = await sb.storage
+      .from('creatives')
+      .uploadToSignedUrl(path, json.token as string, file, { upsert: true })
+    if (error) throw new Error(`Upload falhou: ${error.message}`)
+
+    return json.publicUrl as string
   }
 
   async function handleSave() {
