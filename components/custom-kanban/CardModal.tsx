@@ -1,15 +1,14 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   X, Save, Trash2, Plus, Tag, Check, Link2,
   ImagePlus, Image as ImageIcon, Video, Upload,
-  ExternalLink,
+  ExternalLink, Download, Maximize2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { createClient } from '@/lib/supabase/client'
 import {
   useUpdateCard,
   useDeleteCard,
@@ -21,6 +20,70 @@ import type {
   CustomCard, KanbanLabel, TaskLink,
   KanbanCreative, KanbanCreativeFormat, CreativeStatus, AssigneeName,
 } from '@/lib/types'
+
+// ─── Image Lightbox ───────────────────────────────────────────────────────────
+
+function ImageLightbox({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  async function handleDownload() {
+    try {
+      const res = await fetch(url)
+      const blob = await res.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = name || 'criativo'
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } catch {
+      window.open(url, '_blank')
+    }
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-md"
+      onClick={onClose}
+    >
+      {/* Controls */}
+      <div className="absolute top-4 right-4 flex items-center gap-2 z-10" onClick={e => e.stopPropagation()}>
+        <button
+          onClick={handleDownload}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-600 transition-all backdrop-blur-sm"
+        >
+          <Download size={13} />
+          Baixar
+        </button>
+        <button
+          onClick={onClose}
+          className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all backdrop-blur-sm"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* Image */}
+      <motion.img
+        initial={{ scale: 0.92, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.92, opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        src={url}
+        alt={name}
+        className="max-w-[92vw] max-h-[92vh] object-contain rounded-2xl shadow-2xl"
+        onClick={e => e.stopPropagation()}
+        style={{ imageRendering: 'high-quality' } as React.CSSProperties}
+      />
+    </motion.div>
+  )
+}
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -210,10 +273,10 @@ interface ExistingCreativeRowProps {
   creative: KanbanCreative
   onStatusChange: (status: CreativeStatus) => void
   onDelete: () => void
+  onOpenLightbox: (url: string, name: string) => void
 }
 
-function ExistingCreativeRow({ creative, onStatusChange, onDelete }: ExistingCreativeRowProps) {
-  const statusInfo = CREATIVE_STATUSES.find(s => s.value === creative.status)
+function ExistingCreativeRow({ creative, onStatusChange, onDelete, onOpenLightbox }: ExistingCreativeRowProps) {
   const imagesWithUrl = (creative.formats ?? []).filter(f => f.image_url)
 
   return (
@@ -232,29 +295,28 @@ function ExistingCreativeRow({ creative, onStatusChange, onDelete }: ExistingCre
         </button>
       </div>
 
-      {/* Image thumbnails */}
-      {creative.media_type === 'image' && imagesWithUrl.length > 0 && (
+      {/* Image thumbnails with hover overlay + lightbox */}
+      {creative.media_type === 'image' && (
         <div className="flex gap-1.5">
           {imagesWithUrl.map(f => (
-            <a
+            <button
               key={f.ratio}
-              href={f.image_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              className="relative h-10 w-10 rounded-md overflow-hidden border border-[#22222E] hover:border-[#7C3AED40] shrink-0 group"
-              title={f.ratio}
+              type="button"
+              onClick={e => { e.stopPropagation(); onOpenLightbox(f.image_url!, `${creative.name || 'criativo'}-${f.ratio}`) }}
+              className="relative h-12 w-12 rounded-lg overflow-hidden border border-[#22222E] hover:border-[#7C3AED60] shrink-0 group transition-all"
+              title={`${f.ratio} — clique para ampliar`}
             >
-              <img src={f.image_url} alt={f.ratio} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                <ExternalLink size={10} className="text-white" />
+              <img src={f.image_url} alt={f.ratio} className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" />
+              <div className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-0.5 transition-opacity">
+                <Maximize2 size={11} className="text-white" />
+                <span className="text-[8px] text-white/80 font-600">{f.ratio}</span>
               </div>
-            </a>
+            </button>
           ))}
           {(creative.formats ?? []).filter(f => !f.image_url).map(f => (
             <div
               key={f.ratio}
-              className="h-10 w-10 rounded-md border-2 border-dashed border-[#22222E] flex items-center justify-center shrink-0"
+              className="h-12 w-12 rounded-lg border-2 border-dashed border-[#22222E] flex items-center justify-center shrink-0"
               title={`${f.ratio} — sem imagem`}
             >
               <span className="text-[8px] text-[#5A5A70]">{f.ratio}</span>
@@ -309,7 +371,6 @@ interface CardModalProps {
 }
 
 export function CardModal({ card, open, onClose }: CardModalProps) {
-  const supabase = createClient()
   const updateCard = useUpdateCard()
   const deleteCard = useDeleteCard()
   const { data: labels = [] } = useKanbanLabels()
@@ -356,11 +417,17 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [labelDropdownOpen])
 
+  const [lightbox, setLightbox] = useState<{ url: string; name: string } | null>(null)
+  const openLightbox = useCallback((url: string, name: string) => setLightbox({ url, name }), [])
+
   async function uploadImage(file: File, path: string): Promise<string> {
-    const { error } = await supabase.storage.from('creatives').upload(path, file, { upsert: true })
-    if (error) throw error
-    const { data } = supabase.storage.from('creatives').getPublicUrl(path)
-    return data.publicUrl
+    const form = new FormData()
+    form.append('file', file)
+    form.append('path', path)
+    const res = await fetch('/api/kanban/upload-creative', { method: 'POST', body: form })
+    const json = await res.json()
+    if (!res.ok) throw new Error(json.error ?? 'Falha no upload da imagem')
+    return json.url as string
   }
 
   async function handleSave() {
@@ -404,8 +471,9 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
       })
       toast.success('Card atualizado!')
       onClose()
-    } catch {
-      toast.error('Erro ao salvar card.')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Erro ao salvar card.'
+      toast.error(msg, { duration: 6000 })
     } finally {
       setSaving(false)
     }
@@ -494,6 +562,12 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
   }
 
   return (
+    <>
+    <AnimatePresence>
+      {lightbox && (
+        <ImageLightbox url={lightbox.url} name={lightbox.name} onClose={() => setLightbox(null)} />
+      )}
+    </AnimatePresence>
     <AnimatePresence>
       {open && card && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -693,6 +767,7 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
                           creative={c}
                           onStatusChange={status => changeCreativeStatus(c.id, status)}
                           onDelete={() => deleteCreative(c.id)}
+                          onOpenLightbox={openLightbox}
                         />
                       ))}
                     </div>
@@ -760,5 +835,6 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
         </div>
       )}
     </AnimatePresence>
+    </>
   )
 }

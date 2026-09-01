@@ -333,10 +333,13 @@ export function AddCardModal({ open, columnId, cardsCount, onClose }: AddCardMod
   }
 
   async function uploadImage(file: File, path: string): Promise<string> {
-    const { error } = await supabase.storage.from('creatives').upload(path, file, { upsert: true })
-    if (error) throw error
-    const { data } = supabase.storage.from('creatives').getPublicUrl(path)
-    return data.publicUrl
+    const form = new FormData()
+    form.append('file', file)
+    form.append('path', path)
+    const res = await fetch('/api/kanban/upload-creative', { method: 'POST', body: form })
+    const json = await res.json()
+    if (!res.ok) throw new Error(json.error ?? 'Falha no upload da imagem')
+    return json.url as string
   }
 
   async function handleSave() {
@@ -394,7 +397,8 @@ export function AddCardModal({ open, columnId, cardsCount, onClose }: AddCardMod
       onClose()
     } catch (e) {
       console.error(e)
-      toast.error('Erro ao criar card.')
+      const msg = e instanceof Error ? e.message : 'Erro ao criar card.'
+      toast.error(msg, { duration: 6000 })
     } finally {
       setSaving(false)
     }
