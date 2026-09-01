@@ -106,6 +106,22 @@ export interface KanbanLabel {
   color: string
 }
 
+export type CreativeStatus = 'Não testado' | 'Em teste' | 'Descartado' | 'Validado'
+
+export interface KanbanCreativeFormat {
+  ratio: '1:1' | '3:4' | '9:16'
+  image_url?: string
+}
+
+export interface KanbanCreative {
+  id: string
+  name: string
+  media_type: 'image' | 'video'
+  formats?: KanbanCreativeFormat[]
+  link?: string
+  status: CreativeStatus
+}
+
 export interface CustomColumn {
   id: string
   name: string
@@ -121,6 +137,9 @@ export interface CustomCard {
   description?: string
   label_ids: string[]
   links: TaskLink[]
+  card_type: 'open' | 'creative'
+  assignee?: AssigneeName | null
+  creatives: KanbanCreative[]
   position: number
   created_at: string
   updated_at: string

@@ -1,17 +1,17 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { format, subDays, parseISO } from 'date-fns'
+import { useState, useMemo, useEffect } from 'react'
+import { format, subDays, parseISO, formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
   TrendingUp, TrendingDown, DollarSign, ShoppingCart,
-  Target, Zap, BarChart2, RefreshCw, Info, ChevronLeft, ChevronRight,
-  AlertCircle,
+  Target, Zap, BarChart2, RefreshCw, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { Header } from '@/components/layout/Header'
+import { MetricsAgent } from '@/components/metrics/MetricsAgent'
 import { useUtmifyByDate, useUtmifySnapshots } from '@/hooks/useUtmify'
 import { cn } from '@/lib/utils'
 import type { UtmifySnapshot } from '@/lib/types'
@@ -154,72 +154,35 @@ function ProductsTable({ products }: { products: UtmifySnapshot['products_data']
   )
 }
 
-// ─── Sync Helper ──────────────────────────────────────────────────────────────
-
-function SyncHelper() {
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="bg-[#111118] border border-[#22222E] rounded-2xl p-5">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center justify-between w-full"
-      >
-        <div className="flex items-center gap-2">
-          <Info size={15} className="text-[#7C3AED]" />
-          <span className="text-sm font-700 text-[#F0F0F8]">Como sincronizar dados do Utmify</span>
-        </div>
-        <ChevronRight size={15} className={cn('text-[#5A5A70] transition-transform', open && 'rotate-90')} />
-      </button>
-
-      {open && (
-        <div className="mt-4 space-y-4">
-          {/* Opção A - Claude */}
-          <div className="p-4 rounded-xl bg-[#7C3AED10] border border-[#7C3AED30]">
-            <p className="text-xs font-700 text-[#8B5CF6] mb-2">Opção A — Peça ao Claude (manual)</p>
-            <p className="text-xs text-[#9090A8] leading-relaxed mb-3">
-              Abra o Claude Code e peça: <span className="text-[#F0F0F8] font-600">"Sincronize os dados do Utmify de hoje na plataforma"</span>.
-              O Claude busca via MCP e salva automaticamente.
-            </p>
-            <div className="bg-[#0A0A0F] rounded-lg p-3 font-mono text-[10px] text-[#10B981]">
-              POST {process.env.NEXT_PUBLIC_APP_URL ?? 'https://sua-url.vercel.app'}/api/utmify/store<br />
-              Authorization: Bearer CRON_SECRET
-            </div>
-          </div>
-
-          {/* Opção B - Make.com */}
-          <div className="p-4 rounded-xl bg-[#0EA5E910] border border-[#0EA5E930]">
-            <p className="text-xs font-700 text-[#0EA5E9] mb-2">Opção B — Make.com (automático diário)</p>
-            <p className="text-xs text-[#9090A8] leading-relaxed">
-              Crie um cenário no Make.com com trigger de schedule (ex: diariamente às 23h),
-              um módulo HTTP para chamar o endpoint acima com os dados do Utmify.
-              O projeto já tem integração com Make.com.
-            </p>
-          </div>
-
-          {/* Opção C - Hotmart Webhook */}
-          <div className="p-4 rounded-xl bg-[#10B98110] border border-[#10B98130]">
-            <p className="text-xs font-700 text-[#10B981] mb-2">Opção C — Webhook Hotmart (tempo real)</p>
-            <p className="text-xs text-[#9090A8] leading-relaxed">
-              Adicione um segundo webhook no Hotmart apontando para <span className="text-[#F0F0F8] font-600">/api/webhooks/hotmart</span>.
-              A plataforma recebe cada venda em tempo real e agrega os dados sem depender do Utmify.
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function MetricasPageClient() {
   const today = format(new Date(), 'yyyy-MM-dd')
   const [selectedDate, setSelectedDate] = useState(today)
   const [syncing, setSyncing] = useState(false)
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
+  const [syncedAgo, setSyncedAgo] = useState<string | null>(null)
   const qc = useQueryClient()
+
+  // Update "X min ago" label every minute
+  useEffect(() => {
+    if (!lastSyncedAt) return
+    const update = () => setSyncedAgo(
+      formatDistanceToNow(new Date(lastSyncedAt), { locale: ptBR, addSuffix: true })
+    )
+    update()
+    const id = setInterval(update, 60_000)
+    return () => clearInterval(id)
+  }, [lastSyncedAt])
 
   const { data: snapshot, isLoading } = useUtmifyByDate(selectedDate)
   const { data: history = [] } = useUtmifySnapshots(30)
+
+  // Init lastSyncedAt from loaded snapshot
+  useEffect(() => {
+    if (snapshot?.synced_at && !lastSyncedAt) setLastSyncedAt(snapshot.synced_at)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot?.synced_at])
 
   // Busca snapshot do dia anterior para comparação
   const prevDate = format(subDays(parseISO(selectedDate), 1), 'yyyy-MM-dd')
@@ -239,15 +202,12 @@ export function MetricasPageClient() {
       const json = await res.json()
 
       if (!res.ok) {
-        if (json.setup) {
-          toast.error('Token do Utmify não configurado. Veja as instruções abaixo.', { duration: 6000 })
-        } else {
-          toast.error(json.error ?? 'Erro ao sincronizar')
-        }
+        toast.error(json.error ?? 'Erro ao sincronizar')
         return
       }
 
       await qc.invalidateQueries({ queryKey: ['utmify_snapshots'] })
+      setLastSyncedAt(new Date().toISOString())
       toast.success(`Sincronizado! ${json.approved_orders} pedidos aprovados em ${selectedDate}`)
     } catch {
       toast.error('Erro de conexão ao sincronizar')
@@ -265,7 +225,7 @@ export function MetricasPageClient() {
   }, [selectedDate])
 
   return (
-    <>
+    <div className="flex flex-col h-full overflow-hidden">
       <Header title="Métricas">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 bg-[#1A1A24] rounded-lg p-1">
@@ -281,14 +241,22 @@ export function MetricasPageClient() {
               <ChevronRight size={14} />
             </button>
           </div>
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-600 bg-[#7C3AED] hover:bg-[#8B5CF6] text-white transition-colors active:scale-[0.98] disabled:opacity-60"
-          >
-            <RefreshCw size={13} className={cn(syncing && 'animate-spin')} />
-            {syncing ? 'Sincronizando...' : 'Sincronizar'}
-          </button>
+          <div className="flex items-center gap-2">
+            {syncedAgo && !syncing && (
+              <span className="text-[10px] text-[#5A5A70]">
+                <RefreshCw size={9} className="inline mr-1" />
+                {syncedAgo}
+              </span>
+            )}
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-600 bg-[#7C3AED] hover:bg-[#8B5CF6] text-white transition-colors active:scale-[0.98] disabled:opacity-60"
+            >
+              <RefreshCw size={13} className={cn(syncing && 'animate-spin')} />
+              {syncing ? 'Sincronizando...' : 'Sincronizar'}
+            </button>
+          </div>
         </div>
       </Header>
 
@@ -467,9 +435,10 @@ export function MetricasPageClient() {
           </div>
         )}
 
-        {/* Como sincronizar */}
-        <SyncHelper />
       </div>
-    </>
+
+      {/* Agent bar — fixed at bottom, outside scroll */}
+      <MetricsAgent />
+    </div>
   )
 }

@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { CustomColumn, CustomCard, KanbanLabel } from '@/lib/types'
+import type { CustomColumn, CustomCard, KanbanLabel, KanbanCreative, AssigneeName, TaskLink } from '@/lib/types'
 
 // ─── Columns ────────────────────────────────────────────────────────────────
 
@@ -83,10 +83,30 @@ export function useCreateCard() {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: Pick<CustomCard, 'column_id' | 'title' | 'position'>) => {
+    mutationFn: async (payload: {
+      column_id: string
+      title: string
+      position: number
+      card_type?: 'open' | 'creative'
+      assignee?: AssigneeName | null
+      description?: string
+      label_ids?: string[]
+      links?: TaskLink[]
+      creatives?: KanbanCreative[]
+    }) => {
       const { data, error } = await supabase
         .from('kanban_cards')
-        .insert({ ...payload, label_ids: [] })
+        .insert({
+          column_id: payload.column_id,
+          title: payload.title,
+          position: payload.position,
+          card_type: payload.card_type ?? 'open',
+          assignee: payload.assignee ?? null,
+          description: payload.description ?? null,
+          label_ids: payload.label_ids ?? [],
+          links: payload.links ?? [],
+          creatives: payload.creatives ?? [],
+        })
         .select()
         .single()
       if (error) throw error

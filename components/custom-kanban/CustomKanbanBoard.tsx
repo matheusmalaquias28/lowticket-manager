@@ -18,13 +18,24 @@ import {
 } from '@/hooks/useCustomKanban'
 import { CustomColumnComp } from './CustomColumn'
 import { CardModal } from './CardModal'
+import { AddCardModal } from './AddCardModal'
 import type { CustomCard, CustomColumn } from '@/lib/types'
 
 const COLUMN_COLORS = ['#7C3AED', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6']
 
+interface AddCardState {
+  columnId: string
+  cardsCount: number
+}
+
 function SortableColumn({
-  column, cards, onCardClick,
-}: { column: CustomColumn; cards: CustomCard[]; onCardClick: (c: CustomCard) => void }) {
+  column, cards, onCardClick, onAddCard,
+}: {
+  column: CustomColumn
+  cards: CustomCard[]
+  onCardClick: (c: CustomCard) => void
+  onAddCard: () => void
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `sortcol-${column.id}`,
     data: { type: 'sortcol' },
@@ -39,6 +50,7 @@ function SortableColumn({
         column={column}
         cards={cards}
         onCardClick={onCardClick}
+        onAddCard={onAddCard}
         dragHandleProps={{ ...attributes, ...listeners } as Record<string, unknown>}
       />
     </div>
@@ -51,16 +63,17 @@ export function CustomKanbanBoard() {
   const { data: labels = [] } = useKanbanLabels()
   const createColumn = useCreateColumn()
 
-  const [modalCard, setModalCard] = useState<CustomCard | null>(null)
-  const [modalOpen, setModalOpen] = useState(false)
-  const [addingColumn, setAddingColumn] = useState(false)
-  const [newColName, setNewColName] = useState('')
-  const [newColColor, setNewColColor] = useState('#7C3AED')
+  const [modalCard, setModalCard]         = useState<CustomCard | null>(null)
+  const [modalOpen, setModalOpen]         = useState(false)
+  const [addCardState, setAddCardState]   = useState<AddCardState | null>(null)
+  const [addingColumn, setAddingColumn]   = useState(false)
+  const [newColName, setNewColName]       = useState('')
+  const [newColColor, setNewColColor]     = useState('#7C3AED')
   const [filterLabelIds, setFilterLabelIds] = useState<string[]>([])
 
   function toggleFilter(id: string) {
     setFilterLabelIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id],
     )
   }
 
@@ -70,7 +83,7 @@ export function CustomKanbanBoard() {
 
   const getCardsForColumn = useCallback(
     (colId: string) => filteredCards.filter(c => c.column_id === colId),
-    [filteredCards]
+    [filteredCards],
   )
 
   const columnIds = columns.map(c => `sortcol-${c.id}`)
@@ -80,14 +93,17 @@ export function CustomKanbanBoard() {
     setModalOpen(true)
   }
 
+  function openAddCard(column: CustomColumn) {
+    const cardsCount = allCards.filter(c => c.column_id === column.id).length
+    setAddCardState({ columnId: column.id, cardsCount })
+  }
+
   async function handleAddColumn() {
     const name = newColName.trim()
     if (!name) { setAddingColumn(false); return }
     try {
       await createColumn.mutateAsync({ name, color: newColColor, position: columns.length })
-      setNewColName('')
-      setNewColColor('#7C3AED')
-      setAddingColumn(false)
+      setNewColName(''); setNewColColor('#7C3AED'); setAddingColumn(false)
     } catch {
       toast.error('Erro ao criar coluna.')
     }
@@ -124,7 +140,7 @@ export function CustomKanbanBoard() {
                   'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-600 border transition-all',
                   active
                     ? 'border-transparent text-white'
-                    : 'border-[#22222E] hover:border-current bg-transparent'
+                    : 'border-[#22222E] hover:border-current bg-transparent',
                 )}
                 style={active ? { backgroundColor: lbl.color } : { color: lbl.color }}
               >
@@ -153,6 +169,7 @@ export function CustomKanbanBoard() {
               column={col}
               cards={getCardsForColumn(col.id)}
               onCardClick={openCard}
+              onAddCard={() => openAddCard(col)}
             />
           ))}
         </SortableContext>
@@ -163,7 +180,10 @@ export function CustomKanbanBoard() {
               autoFocus
               value={newColName}
               onChange={e => setNewColName(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleAddColumn(); if (e.key === 'Escape') setAddingColumn(false) }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleAddColumn()
+                if (e.key === 'Escape') setAddingColumn(false)
+              }}
               placeholder="Nome da coluna..."
               className="w-full bg-transparent text-sm font-700 text-[#F0F0F8] placeholder:text-[#5A5A70] focus:outline-none"
             />
@@ -174,7 +194,7 @@ export function CustomKanbanBoard() {
                   onClick={() => setNewColColor(c)}
                   className={cn(
                     'w-5 h-5 rounded-full transition-all',
-                    newColColor === c && 'ring-2 ring-offset-1 ring-offset-[#111118] ring-white scale-110'
+                    newColColor === c && 'ring-2 ring-offset-1 ring-offset-[#111118] ring-white scale-110',
                   )}
                   style={{ backgroundColor: c }}
                 />
@@ -213,10 +233,19 @@ export function CustomKanbanBoard() {
         )}
       </div>
 
+      {/* Edit card modal */}
       <CardModal
         card={modalCard}
         open={modalOpen}
         onClose={() => { setModalOpen(false); setModalCard(null) }}
+      />
+
+      {/* Add card modal */}
+      <AddCardModal
+        open={!!addCardState}
+        columnId={addCardState?.columnId ?? ''}
+        cardsCount={addCardState?.cardsCount ?? 0}
+        onClose={() => setAddCardState(null)}
       />
     </div>
   )
