@@ -199,10 +199,19 @@ export function MetricasPageClient() {
     setSyncing(true)
     try {
       const res = await fetch(`/api/utmify/sync?date=${selectedDate}`, { method: 'POST' })
-      const json = await res.json()
+
+      // Guard against non-JSON responses (timeout pages, proxy errors, etc.)
+      const text = await res.text()
+      let json: Record<string, unknown>
+      try {
+        json = JSON.parse(text)
+      } catch {
+        toast.error(`Erro do servidor (${res.status}). Tente novamente.`, { duration: 6000 })
+        return
+      }
 
       if (!res.ok) {
-        toast.error(json.error ?? 'Erro ao sincronizar')
+        toast.error((json.error as string) ?? 'Erro ao sincronizar', { duration: 6000 })
         return
       }
 

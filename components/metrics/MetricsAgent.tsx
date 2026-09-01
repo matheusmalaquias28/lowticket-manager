@@ -144,10 +144,19 @@ export function MetricsAgent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: next }),
       })
-      const data = await res.json()
+
+      const text = await res.text()
+      let data: Record<string, unknown>
+      try {
+        data = JSON.parse(text)
+      } catch {
+        setMessages(prev => [...prev, { role: 'assistant', content: `Erro do servidor (${res.status}). Tente novamente.` }])
+        return
+      }
+
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: (!res.ok || data.error) ? `Erro: ${data.error ?? 'Falha ao consultar.'}` : data.text,
+        content: (!res.ok || data.error) ? `Erro: ${data.error ?? 'Falha ao consultar.'}` : data.text as string,
       }])
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Não foi possível conectar ao agente.' }])
