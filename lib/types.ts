@@ -140,6 +140,7 @@ export interface CustomCard {
   card_type: 'open' | 'creative'
   assignee?: AssigneeName | null
   creatives: KanbanCreative[]
+  checklist: ChecklistItem[]
   position: number
   created_at: string
   updated_at: string

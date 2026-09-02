@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { CustomColumn, CustomCard, KanbanLabel, KanbanCreative, AssigneeName, TaskLink } from '@/lib/types'
+import type { CustomColumn, CustomCard, KanbanLabel, KanbanCreative, AssigneeName, TaskLink, ChecklistItem } from '@/lib/types'
 
 // ─── Columns ────────────────────────────────────────────────────────────────
 
@@ -93,6 +93,7 @@ export function useCreateCard() {
       label_ids?: string[]
       links?: TaskLink[]
       creatives?: KanbanCreative[]
+      checklist?: ChecklistItem[]
     }) => {
       const { data, error } = await supabase
         .from('kanban_cards')
@@ -106,6 +107,7 @@ export function useCreateCard() {
           label_ids: payload.label_ids ?? [],
           links: payload.links ?? [],
           creatives: payload.creatives ?? [],
+          checklist: payload.checklist ?? [],
         })
         .select()
         .single()
@@ -129,15 +131,14 @@ export function useUpdateCard() {
         .select()
         .single()
 
-      // Se a coluna `links` ainda não existe no banco (migration_v8 pendente),
-      // tenta novamente sem ela para não bloquear o fluxo
-      const isLinksColumnError =
-        'links' in payload &&
-        (String(error?.code) === '42703' ||
-          error?.message?.includes('links') ||
-          error?.details?.includes('links'))
-      if (isLinksColumnError) {
-        const { links: _l, ...safePayload } = payload
+      // Se alguma coluna opcional ainda não existe no banco (migrations pendentes:
+      // v8 → `links`, v14 → `checklist`), tenta novamente sem ela para não bloquear o fluxo.
+      if (error && String(error.code) === '42703') {
+        const detail = `${error.message ?? ''} ${error.details ?? ''}`
+        const safePayload = { ...payload }
+        for (const col of ['links', 'checklist'] as const) {
+          if (col in safePayload && detail.includes(col)) delete safePayload[col]
+        }
         const { data: d2, error: e2 } = await supabase
           .from('kanban_cards')
           .update(safePayload)

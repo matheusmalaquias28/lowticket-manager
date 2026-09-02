@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   X, Save, Trash2, Plus, Tag, Check, Link2,
   ImagePlus, Image as ImageIcon, Video, Upload,
-  ExternalLink, Download, Maximize2,
+  ExternalLink, Download, Maximize2, ListChecks,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -16,8 +16,9 @@ import {
   useSaveKanbanLabels,
 } from '@/hooks/useCustomKanban'
 import { LinksList } from '@/components/tasks/LinksList'
+import { ChecklistEditor } from '@/components/tasks/ChecklistEditor'
 import type {
-  CustomCard, KanbanLabel, TaskLink,
+  CustomCard, KanbanLabel, TaskLink, ChecklistItem,
   KanbanCreative, KanbanCreativeFormat, CreativeStatus, AssigneeName,
 } from '@/lib/types'
 
@@ -379,6 +380,7 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
   const [description, setDescription]           = useState('')
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([])
   const [links, setLinks]                       = useState<TaskLink[]>([])
+  const [checklist, setChecklist]               = useState<ChecklistItem[]>([])
   const [assignee, setAssignee]                 = useState<AssigneeName | null | undefined>(null)
   const [cardType, setCardType]                 = useState<'open' | 'creative'>('open')
   const [localCreatives, setLocalCreatives]     = useState<KanbanCreative[]>([])
@@ -396,6 +398,7 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
       setDescription(card.description ?? '')
       setSelectedLabelIds(card.label_ids ?? [])
       setLinks(card.links ?? [])
+      setChecklist(card.checklist ?? [])
       setAssignee(card.assignee ?? null)
       setCardType(card.card_type ?? 'open')
       setLocalCreatives(card.creatives ?? [])
@@ -477,6 +480,7 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
         assignee: assignee ?? null,
         card_type: cardType,
         creatives: finalCreatives,
+        checklist,
         ...(card.links !== undefined ? { links } : {}),
       })
       toast.success('Card atualizado!')
@@ -746,6 +750,15 @@ export function CardModal({ card, open, onClose }: CardModalProps) {
                   <label className="text-xs font-600 text-[#9090A8]">Links relacionados</label>
                 </div>
                 <LinksList links={links} onChange={setLinks} />
+              </div>
+
+              {/* Checklist */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <ListChecks size={13} className="text-[#5A5A70]" />
+                  <label className="text-xs font-600 text-[#9090A8]">Checklist</label>
+                </div>
+                <ChecklistEditor items={checklist} onChange={setChecklist} />
               </div>
 
               {/* Criativos (apenas para tipo 'creative') */}

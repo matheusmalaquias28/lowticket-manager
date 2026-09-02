@@ -2,7 +2,7 @@
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { ImageIcon } from 'lucide-react'
+import { ImageIcon, ListChecks } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useKanbanLabels } from '@/hooks/useCustomKanban'
 import type { CustomCard } from '@/lib/types'
@@ -27,6 +27,10 @@ export function CustomCardItem({ card, onClick }: CustomCardProps) {
   const cardLabels = labels.filter(l => card.label_ids?.includes(l.id))
   const isCreative = card.card_type === 'creative'
   const creativeCount = (card.creatives ?? []).length
+
+  const checklist = card.checklist ?? []
+  const checklistTotal = checklist.length
+  const checklistDone = checklist.filter(i => i.done).length
 
   // First image thumbnail from creatives
   const firstImage = (card.creatives ?? [])
@@ -103,14 +107,28 @@ export function CustomCardItem({ card, onClick }: CustomCardProps) {
         </div>
       )}
 
-      {/* Footer: type badge + creative count + assignee */}
-      {(isCreative || card.assignee) && (
+      {/* Footer: type badge + creative count + checklist + assignee */}
+      {(isCreative || checklistTotal > 0 || card.assignee) && (
         <div className="flex items-center justify-between mt-2">
           <div className="flex items-center gap-1.5">
             {isCreative && (
               <span className="inline-flex items-center gap-1 text-[9px] font-700 text-[#8B5CF6] bg-[#7C3AED1A] px-1.5 py-0.5 rounded-md">
                 <ImageIcon size={9} />
                 {creativeCount > 0 ? `${creativeCount} criativo${creativeCount > 1 ? 's' : ''}` : 'Criativo'}
+              </span>
+            )}
+            {checklistTotal > 0 && (
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1 text-[9px] font-700 px-1.5 py-0.5 rounded-md',
+                  checklistDone === checklistTotal
+                    ? 'text-[#10B981] bg-[#10B9811A]'
+                    : 'text-[#9090A8] bg-[#22222E]',
+                )}
+                title={`${checklistDone}/${checklistTotal} concluídos`}
+              >
+                <ListChecks size={9} />
+                {checklistDone}/{checklistTotal}
               </span>
             )}
           </div>
