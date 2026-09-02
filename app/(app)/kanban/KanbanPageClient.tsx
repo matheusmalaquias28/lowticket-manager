@@ -16,6 +16,7 @@ import {
   type CollisionDetection,
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
+import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
@@ -26,8 +27,11 @@ import { CustomKanbanBoard } from '@/components/custom-kanban/CustomKanbanBoard'
 import { CustomCardItem } from '@/components/custom-kanban/CustomCard'
 import { Header } from '@/components/layout/Header'
 import { useCurrentWeek } from '@/hooks/useCurrentWeek'
-import { useCreateTask, useTasks, useUpdateTask } from '@/hooks/useTasks'
-import { useCustomColumns, useCustomCards, useUpdateColumn, useUpdateCard } from '@/hooks/useCustomKanban'
+import { useCreateTask, useTasks, useUpdateTask, useDeleteTask } from '@/hooks/useTasks'
+import {
+  useCustomColumns, useCustomCards, useUpdateColumn, useUpdateCard,
+  useCreateCard, useDeleteCard,
+} from '@/hooks/useCustomKanban'
 import { cn } from '@/lib/utils'
 import { ASSIGNEE_COLORS } from '@/lib/constants'
 import type { Profile, Task, CustomCard, CustomColumn, AssigneeName } from '@/lib/types'
@@ -53,6 +57,7 @@ export function KanbanPageClient({ profile }: KanbanPageClientProps) {
   const { weekKey, goToPrev, goToNext, goToToday, isCurrentWeek, isPastWeek } = useCurrentWeek()
   const createTask = useCreateTask()
   const updateTask = useUpdateTask()
+  const deleteTask = useDeleteTask()
   const queryClient = useQueryClient()
   const supabase = createClient()
 
@@ -61,6 +66,8 @@ export function KanbanPageClient({ profile }: KanbanPageClientProps) {
   const { data: allCards = [] } = useCustomCards()
   const updateColumn = useUpdateColumn()
   const updateCard = useUpdateCard()
+  const createCard = useCreateCard()
+  const deleteCard = useDeleteCard()
 
   // Weekly tasks
   const { data: tasks = [], isLoading: tasksLoading } = useTasks(weekKey)
@@ -187,37 +194,34 @@ export function KanbanPageClient({ profile }: KanbanPageClientProps) {
       const card = allCards.find(c => c.id === activeId)
       if (!card) return
 
-      // Dropped on a day column → create task from card
-      if (overId.startsWith('day-')) {
-        const newDay = parseInt(overId.replace('day-', ''))
-        await createTask.mutateAsync({
-          title: card.title,
-          status: 'pending',
-          assignee_name: profile.name,
-          category: 'other',
-          day_of_week: newDay,
-          week_key: weekKey,
-          checklist: [],
-          links: [],
-          created_by: profile.id,
-        })
-        return
-      }
-
-      // Dropped on a task in a day column → create task in that day
+      // Dropped on the weekly board (day column or task) → MOVE card into a task.
+      // Cards criativos não são movidos para a semana (tarefas não têm criativos).
       const overTask = localTasks.find(t => t.id === overId)
-      if (overTask) {
-        await createTask.mutateAsync({
-          title: card.title,
-          status: 'pending',
-          assignee_name: profile.name,
-          category: 'other',
-          day_of_week: overTask.day_of_week,
-          week_key: weekKey,
-          checklist: [],
-          links: [],
-          created_by: profile.id,
-        })
+      const targetDay = overId.startsWith('day-')
+        ? parseInt(overId.replace('day-', ''))
+        : overTask?.day_of_week
+
+      if (targetDay !== undefined && card.card_type === 'creative') return
+
+      if (targetDay !== undefined) {
+        try {
+          await createTask.mutateAsync({
+            title: card.title,
+            status: 'pending',
+            assignee_name: card.assignee ?? profile.name,
+            category: 'other',
+            day_of_week: targetDay,
+            week_key: weekKey,
+            description: card.description,
+            checklist: card.checklist ?? [],
+            links: card.links ?? [],
+            created_by: profile.id,
+          })
+          await deleteCard.mutateAsync(card.id)
+          toast.success('Card movido para a semana.')
+        } catch {
+          toast.error('Erro ao mover card.')
+        }
         return
       }
 
@@ -225,6 +229,8 @@ export function KanbanPageClient({ profile }: KanbanPageClientProps) {
       let targetColumnId = card.column_id
       if (overId.startsWith('col-')) {
         targetColumnId = overId.replace('col-', '')
+      } else if (overId.startsWith('sortcol-')) {
+        targetColumnId = overId.replace('sortcol-', '')
       } else {
         const overCard = allCards.find(c => c.id === overId)
         if (overCard) targetColumnId = overCard.column_id
@@ -238,6 +244,38 @@ export function KanbanPageClient({ profile }: KanbanPageClientProps) {
     // ── Task drag ───────────────────────────────────────────────────
     const task = localTasks.find(t => t.id === activeId)
     if (!task) return
+
+    // Dropped on the custom board (column or card) → MOVE task into a card
+    let targetColumnId: string | null = null
+    if (overId.startsWith('col-')) {
+      targetColumnId = overId.replace('col-', '')
+    } else if (overId.startsWith('sortcol-')) {
+      targetColumnId = overId.replace('sortcol-', '')
+    } else {
+      const overCard = allCards.find(c => c.id === overId)
+      if (overCard) targetColumnId = overCard.column_id
+    }
+    if (targetColumnId) {
+      const position = allCards.filter(c => c.column_id === targetColumnId).length
+      try {
+        await createCard.mutateAsync({
+          column_id: targetColumnId,
+          title: task.title,
+          position,
+          card_type: 'open',
+          assignee: task.assignee_name,
+          description: task.description,
+          label_ids: [],
+          links: task.links ?? [],
+          checklist: task.checklist ?? [],
+        })
+        await deleteTask.mutateAsync({ id: task.id, weekKey })
+        toast.success('Tarefa movida para o quadro livre.')
+      } catch {
+        toast.error('Erro ao mover tarefa.')
+      }
+      return
+    }
 
     if (overId.startsWith('day-')) {
       const newDay = parseInt(overId.replace('day-', ''))
